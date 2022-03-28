@@ -1,14 +1,13 @@
 from flask import Flask, render_template, redirect
 
 from data import db_session
-from data.students import Students
-from data.teachers import Teachers
+from data.users import Users
 from forms.registerForm import RegisterForm
 from forms.loginForm import LoginForm
 
 import datetime
 
-from flask_login import LoginManager, login_user, login_required, logout_user
+from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'yandexlyceum_secret_key'
@@ -21,9 +20,9 @@ login_manager.init_app(app)
 
 
 @login_manager.user_loader
-def load_student(user_id):
+def load_user(user_id):
     db_sess = db_session.create_session()
-    return db_sess.query(Students).get(user_id)
+    return db_sess.query(Users).get(user_id)
 
 
 def main():
@@ -32,35 +31,22 @@ def main():
 
 
 @app.route("/")
+@login_required
 def index():
-    return render_template("index.html")
+    if current_user.type == 1:
+        return render_template("index_for_teacher.html")
+    return render_template("index_for_student.html")
 
 
-@app.route('/login_teacher', methods=['GET', 'POST'])
-def login_teacher():
+@app.route('/login', methods=['GET', 'POST'])
+def login():
     form = LoginForm()
     if form.validate_on_submit():
         db_sess = db_session.create_session()
-        teacher = db_sess.query(Teachers).filter(
-            Teachers.name == form.name.data and Teachers.surname == form.surname.data).first()
-        if teacher and teacher.check_password(form.password.data):
-            login_user(teacher)
-            return redirect("/")
-        return render_template('login.html',
-                               message="Неправильный логин или пароль",
-                               form=form)
-    return render_template('login.html', title='Авторизация', form=form)
-
-
-@app.route('/login_student', methods=['GET', 'POST'])
-def login_student():
-    form = LoginForm()
-    if form.validate_on_submit():
-        db_sess = db_session.create_session()
-        student = db_sess.query(Students).filter(
-            Students.name == form.name.data and Students.surname == form.surname.data).first()
-        if student and student.check_password(form.password.data):
-            login_user(student)
+        user = db_sess.query(Users).filter(
+            Users.name == form.name.data and Users.surname == form.surname.data).first()
+        if user and user.check_password(form.password.data):
+            login_user(user)
             return redirect("/")
         return render_template('login.html',
                                message="Неправильный логин или пароль",
@@ -77,39 +63,30 @@ def register():
                                    form=form,
                                    message="Пароли не совпадают")
         db_sess = db_session.create_session()
+        if db_sess.query(Users).filter(
+                Users.name == form.name.data and Users.surname == form.surname.data).first():
+            return render_template('register.html', title='Регистрация',
+                                   form=form,
+                                   message="Такой пользователь уже есть")
         if form.type.data == "student":
-            if db_sess.query(Students).filter(
-                    Students.name == form.name.data and Students.surname == form.surname.data).first():
-                return render_template('register.html', title='Регистрация',
-                                       form=form,
-                                       message="Такой пользователь уже есть")
-            student = Students(
+            user = Users(
                 name=form.name.data,
                 surname=form.surname.data,
                 grade=form.grade.data,
                 contact=form.contact.data,
                 type=2
             )
-            student.set_password(form.password.data)
-            db_sess.add(student)
-            db_sess.commit()
-            return redirect('/login_student')
-        elif form.type.data == "teacher":
-            if db_sess.query(Teachers).filter(
-                    Teachers.name == form.name.data and Teachers.surname == form.surname.data).first():
-                return render_template('register.html', title='Регистрация',
-                                       form=form,
-                                       message="Такой пользователь уже есть")
-            teacher = Teachers(
+        else:
+            user = Users(
                 name=form.name.data,
                 surname=form.surname.data,
                 contact=form.contact.data,
                 type=1
             )
-            teacher.set_password(form.password.data)
-            db_sess.add(teacher)
-            db_sess.commit()
-            return redirect('/login_teacher')
+        user.set_password(form.password.data)
+        db_sess.add(user)
+        db_sess.commit()
+        return redirect('/login')
     return render_template('register.html', title='Регистрация', form=form)
 
 
@@ -117,7 +94,15 @@ def register():
 @login_required
 def logout():
     logout_user()
-    return redirect("/login_student")
+    return redirect("/login")
+
+
+@app.after_request
+def redirect_to_sign(response):
+    if response.status_code == 401:
+        return redirect("/register")
+
+    return response
 
 
 if __name__ == '__main__':
