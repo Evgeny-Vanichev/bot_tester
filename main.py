@@ -4,6 +4,8 @@ from data import db_session
 from data.users import Users
 from forms.registerForm import RegisterForm
 from forms.loginForm import LoginForm
+from forms.taskForm import TaskForm
+from data.tasks import Tasks
 
 import datetime
 
@@ -34,7 +36,11 @@ def main():
 @login_required
 def index():
     if current_user.type == 1:
-        return render_template("index_for_teacher.html")
+        db_sess = db_session.create_session()
+        result = db_sess.query(Tasks).filter(Tasks.teacher_id == current_user.id)
+        for i in result:
+            print(i.name)
+        return render_template("index_for_teacher.html", tasks=result)
     return render_template("index_for_student.html")
 
 
@@ -101,8 +107,23 @@ def logout():
 def redirect_to_sign(response):
     if response.status_code == 401:
         return redirect("/register")
-
     return response
+
+
+@app.route('/add_task', methods=['GET', 'POST'])
+def add_task():
+    form = TaskForm()
+    if form.validate_on_submit():
+        db_sess = db_session.create_session()
+        task = Tasks()
+        task.name = form.name.data
+        task.about = form.about.data
+        current_user.tasks.append(task)
+        db_sess.merge(current_user)
+        db_sess.commit()
+        return redirect('/')
+    return render_template('task.html', title='Добавление вопроса',
+                           form=form)
 
 
 if __name__ == '__main__':
