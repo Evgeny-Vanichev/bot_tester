@@ -14,3 +14,8 @@ class Tasks(SqlAlchemyBase, UserMixin):
     teacher_id = sqlalchemy.Column(sqlalchemy.Integer,
                                    sqlalchemy.ForeignKey("users.id"))
     teacher = orm.relation('Users')
+
+    def __repr__(self):
+        return f'<Task> {self.name} {self.teacher}'
+
+
