@@ -88,14 +88,14 @@
                 {% if group.group_id == current_group.group_id %}
                 <li class="list-group-item active">
                     <div>
-                        <a href="/manage_groups/{{ loop.index }}" style="color:white">{{
+                        <a href="/manage_groups/{{ group.group_id }}" style="color:white">{{
                             group.group_name }}</a>
                     </div>
                 </li>
                 {% else %}
                 <li class="list-group-item">
                     <div>
-                        <a href="/manage_groups/{{ loop.index }}">{{ group.group_name }}</a>
+                        <a href="/manage_groups/{{ group.group_id }}">{{ group.group_name }}</a>
                     </div>
                 </li>
                 {% endif %}

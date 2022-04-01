@@ -37,14 +37,14 @@
                 {% if test.test_id == current_test.test_id %}
                 <li class="list-group-item active">
                     <div>
-                        <a href="/manage_tests/{{ loop.index }}" style="color:white">{{ test.name }}</a>
+                        <a href="/manage_tests/{{ test.test_id }}" style="color:white">{{ test.name }}</a>
                         <p>{{ test.about }}</p>
                     </div>
                 </li>
                 {% else %}
                 <li class="list-group-item">
                     <div>
-                        <a href="/manage_tests/{{ loop.index }}">{{ test.name }}</a>
+                        <a href="/manage_tests/{{ test.test_id }}">{{ test.name }}</a>
                         <p>{{ test.about }}</p>
                     </div>
                 </li>

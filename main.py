@@ -248,10 +248,8 @@ def register():
         db_sess.add(user)
         db_sess.commit()
         if user.type == TEACHER:
-            path = os.path.abspath(os.getcwd() + '/user_data')
-            os.chdir(path)
-            os.mkdir(str(user.id))
-            os.chdir('..')
+            filepath = os.getcwd()
+            os.makedirs(filepath + f'/user_data/{user.id}')
         return redirect('/login')
 
     return render_template('register.html', title='Регистрация', form=form)
@@ -333,9 +331,12 @@ def add_test():
         )
         db_sess.add(task)
         db_sess.commit()
-        print(os.path.abspath(f'/user_data/{current_user.id}/{task.test_id}.json'))
-        with open(os.path.abspath(f'/user_data/{current_user.id}/{task.test_id}.json'), mode='wt') as json_file:
+
+        path = os.path.abspath(os.getcwd() + f'/user_data/{current_user.id}/{task.test_id}')
+        os.makedirs(path)
+        with open(path + f'/{task.test_id}.json', mode='wt') as json_file:
             json.dump({'groups': [], 'tasks': []}, json_file)
+        print(os.getcwd())
         return redirect(f'/manage_tests/{task.test_id}')
     return render_template('add_test.html', form=form)
 
@@ -377,12 +378,15 @@ def edit_test_info(test_id):
 def delete_test(test_id):
     db_sess = db_session.create_session()
 
-    group = db_sess.query(Tests).filter(Tests.test_id == test_id,
-                                        Tests.teacher_id == current_user.id).first()
-    if group is None:
+    test = db_sess.query(Tests).filter(Tests.test_id == test_id,
+                                       Tests.teacher_id == current_user.id).first()
+    if test is None:
         abort(404)
-    db_sess.delete(group)
+    db_sess.delete(test)
     db_sess.commit()
+
+    path = os.path.abspath(os.getcwd() + f'/user_data/{current_user.id}')
+    shutil.rmtree(path + f'/{test_id}')
     return redirect('/manage_tests')
 
 
