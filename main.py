@@ -1,7 +1,9 @@
 import os
+import json
+import shutil
+
 from flask import Flask, render_template, redirect, request
 from werkzeug.exceptions import abort
-import json
 
 from data import db_session
 
@@ -331,7 +333,8 @@ def add_test():
         )
         db_sess.add(task)
         db_sess.commit()
-        with open(f'user_data/{current_user.id}/{task.test_id}.json', mode='wt') as json_file:
+        print(os.path.abspath(f'/user_data/{current_user.id}/{task.test_id}.json'))
+        with open(os.path.abspath(f'/user_data/{current_user.id}/{task.test_id}.json'), mode='wt') as json_file:
             json.dump({'groups': [], 'tasks': []}, json_file)
         return redirect(f'/manage_tests/{task.test_id}')
     return render_template('add_test.html', form=form)
@@ -367,6 +370,20 @@ def edit_test_info(test_id):
         db_sess.commit()
         return redirect(f'/manage_tests/{test.test_id}')
     return render_template('add_test.html', form=form)
+
+
+@app.route('/delete_test/<int:test_id>', methods=['GET', 'POST'])
+@login_required
+def delete_test(test_id):
+    db_sess = db_session.create_session()
+
+    group = db_sess.query(Tests).filter(Tests.test_id == test_id,
+                                        Tests.teacher_id == current_user.id).first()
+    if group is None:
+        abort(404)
+    db_sess.delete(group)
+    db_sess.commit()
+    return redirect('/manage_tests')
 
 
 if __name__ == '__main__':
