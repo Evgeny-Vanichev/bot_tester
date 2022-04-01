@@ -390,5 +390,55 @@ def delete_test(test_id):
     return redirect('/manage_tests')
 
 
+@app.route('/view_tasks/<int:test_id>')
+@login_required
+def manage_tasks_for_test(test_id):
+    return render_template('in_development.html')
+
+
+@app.route('/view_groups/<int:test_id>')
+@login_required
+def manage_groups_for_test(test_id):
+    with open(f'user_data\\{current_user.id}\\{test_id}\\{test_id}.json', mode='rt') as jsonfile:
+        data = json.load(jsonfile)
+        groups_ids = data['groups']
+    # Надо снова добавить проверку на дурака
+    db_sess = db_session.create_session()
+    groups = [(group, group.group_id in groups_ids) for group in db_sess.query(Groups).all()]
+
+    test = db_sess.query(Tests).filter(Tests.test_id == test_id).first()
+    result = db_sess.query(Tests).filter(Tests.teacher_id == current_user.id).all()
+    return render_template('tests_groups_for_teacher.html',
+                           groups=groups,
+                           current_test=test,
+                           tests=result)
+
+
+@app.route('/group_add/<int:test_id>/<int:group_id>')
+@login_required
+def add_group_to_Test(test_id, group_id):
+    filename = f'user_data\\{current_user.id}\\{test_id}\\{test_id}.json'
+    with open(filename, mode='rt', encoding='utf-8') as jsonfile:
+        data = json.load(jsonfile)
+        if group_id not in data['groups']:
+            data['groups'].append(group_id)
+    with open(filename, mode='wt', encoding='utf-8') as jsonfile:
+        json.dump(data, jsonfile)
+    return redirect(f'/view_groups/{test_id}')
+
+
+@app.route("/group_discard/<int:test_id>/<int:group_id>")
+@login_required
+def discard_group_from_test(test_id, group_id):
+    filename = f'user_data\\{current_user.id}\\{test_id}\\{test_id}.json'
+    with open(filename, mode='rt', encoding='utf-8') as jsonfile:
+        data = json.load(jsonfile)
+        if group_id in data['groups']:
+            data['groups'].remove(group_id)
+    with open(filename, mode='wt', encoding='utf-8') as jsonfile:
+        json.dump(data, jsonfile)
+    return redirect(f'/view_groups/{test_id}')
+
+
 if __name__ == '__main__':
     main()

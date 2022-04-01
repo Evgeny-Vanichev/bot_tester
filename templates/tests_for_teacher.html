@@ -13,16 +13,14 @@
     <a href="/edit_test/{{ current_test.test_id }}" class="btn btn-secondary">Переименовать работу</a>
     <a href="/delete_test/{{ current_test.test_id }}" class="btn btn-danger">Удалить работу</a>
     <hr class="my-3">
-    <a href="/view_tasks" class="btn btn-secondary">Просмотр заданий</a>
-    <a href="/view_groups" class="btn btn-secondary">Просмотр групп</a>
+    <a href="/view_tasks/{{ current_test.test_id }}" class="btn btn-secondary">Просмотр заданий</a>
+    <a href="/view_groups/{{ current_test.test_id }}" class="btn btn-secondary">Просмотр групп</a>
     {% endif %}
 </div>
 
 {% if current_test != None %}
 
-<table class="table">
-    <h1>Здесь будут перечислены задания конкретной работы</h1>
-</table>
+<h1>Здесь будут перечислены задания конкретной работы</h1>
 {% endif %}
 {% endblock %}
 
