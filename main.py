@@ -97,6 +97,33 @@ def add_group():
     return render_template('add_group.html', form=form)
 
 
+@app.route('/rename_group/<int:group_id>', methods=['GET', 'POST'])
+@login_required
+def rename_group(group_id):
+    if current_user.type != TEACHER:
+        abort(401)
+    db_sess = db_session.create_session()
+    group = db_sess.query(Groups).filter(Groups.group_id == group_id,
+                                         Groups.teacher_id == current_user.id).first()
+    if group is None:
+        abort(404)
+
+    # Загрузка списка всех студентов в форму
+    form = GroupForm()
+    if form.validate_on_submit():
+        if db_sess.query(Groups).filter(Groups.group_name == form.name.data,
+                                        Groups.teacher_id == current_user.id,
+                                        Groups.group_id != group_id).first() is not None:
+            return render_template('add_group.html', form=form,
+                                   message="Вы ранее создавали группу с таким именем")
+        # Создание новой группы
+        group.group_name = form.name.data
+        db_sess.add(group)
+        db_sess.commit()
+        return redirect(f'/manage_groups/{group.group_id}')
+    return render_template('add_group.html', form=form)
+
+
 @app.route('/person_delete/<int:group_id>/<int:student_id>')
 @login_required
 def student_delete(group_id, student_id):

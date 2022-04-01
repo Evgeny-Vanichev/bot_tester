@@ -11,7 +11,7 @@
     {% else %}
     <h4>Текущая группа - {{ current_group.group_name }}</h4>
     <hr class="my-3">
-    <a href="/group/{{ current_group.group_id }}" class="btn btn-secondary">Переименовать группу</a>
+    <a href="/rename_group/{{ current_group.group_id }}" class="btn btn-secondary">Переименовать группу</a>
     <a href="/delete_group/{{ current_group.group_id }}" class="btn btn-danger">Удалить группу</a>
     {% endif %}
 </div>
