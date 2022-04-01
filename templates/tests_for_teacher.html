@@ -10,7 +10,7 @@
     {% else %}
     <h4>Текущая работа - {{ current_test.name }}</h4>
     <hr class="my-3">
-    <a href="/test/{{ current_test.test_id }}" class="btn btn-secondary">Переименовать работу</a>
+    <a href="/edit_test/{{ current_test.test_id }}" class="btn btn-secondary">Переименовать работу</a>
     <a href="/delete_test/{{ current_test.test_id }}" class="btn btn-danger">Удалить работу</a>
     <hr class="my-3">
     <a href="/view_tasks" class="btn btn-secondary">Просмотр заданий</a>
@@ -34,12 +34,21 @@
             <a href="/manage_tests"><h5>Управление<br>работами (главная)</h5></a>
             <ul class="list-group">
                 {% for test in tests %}
+                {% if test.test_id == current_test.test_id %}
+                <li class="list-group-item active">
+                    <div>
+                        <a href="/manage_tests/{{ loop.index }}" style="color:white">{{ test.name }}</a>
+                        <p>{{ test.about }}</p>
+                    </div>
+                </li>
+                {% else %}
                 <li class="list-group-item">
                     <div>
                         <a href="/manage_tests/{{ loop.index }}">{{ test.name }}</a>
                         <p>{{ test.about }}</p>
                     </div>
                 </li>
+                {% endif %}
                 {% endfor %}
 
             </ul>

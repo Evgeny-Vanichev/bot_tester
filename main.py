@@ -103,20 +103,23 @@ def rename_group(group_id):
     if current_user.type != TEACHER:
         abort(401)
     db_sess = db_session.create_session()
-    group = db_sess.query(Groups).filter(Groups.group_id == group_id,
-                                         Groups.teacher_id == current_user.id).first()
-    if group is None:
-        abort(404)
-
-    # Загрузка списка всех студентов в форму
     form = GroupForm()
+    if request.method == 'GET':
+        db_sess = db_session.create_session()
+        group = db_sess.query(Groups).filter(Groups.group_id == group_id,
+                                             Groups.teacher_id == current_user.id).first()
+        form.name.data = group.group_name
+        if group is None:
+            abort(404)
     if form.validate_on_submit():
         if db_sess.query(Groups).filter(Groups.group_name == form.name.data,
                                         Groups.teacher_id == current_user.id,
                                         Groups.group_id != group_id).first() is not None:
             return render_template('add_group.html', form=form,
                                    message="Вы ранее создавали группу с таким именем")
-        # Создание новой группы
+        # Обновление информации о группе
+        group = db_sess.query(Groups).filter(Groups.group_id == group_id,
+                                             Groups.teacher_id == current_user.id).first()
         group.group_name = form.name.data
         db_sess.add(group)
         db_sess.commit()
@@ -133,7 +136,7 @@ def delete_group(group_id):
     if group is None:
         abort(404)
     for student in db_sess.query(GroupParticipants).filter(
-        GroupParticipants.group_id == group.group_id
+            GroupParticipants.group_id == group.group_id
     ):
         db_sess.delete(student)
     db_sess.delete(group)
@@ -308,6 +311,7 @@ def add_task():
 
 
 @app.route('/new_test', methods=['GET', 'POST'])
+@login_required
 def add_test():
     if current_user.type != TEACHER:
         abort(401)
@@ -319,7 +323,7 @@ def add_test():
                                        Tests.teacher_id == current_user.id).first() is not None:
             return render_template('add_test.html', form=form,
                                    message="Вы ранее создавали группу с таким именем")
-        # Создание новой группы
+        # Создание новой работы
         task = Tests(
             name=form.name.data,
             about=form.about.data,
@@ -329,8 +333,39 @@ def add_test():
         db_sess.commit()
         with open(f'user_data/{current_user.id}/{task.test_id}.json', mode='wt') as json_file:
             json.dump({'groups': [], 'tasks': []}, json_file)
-            print('file_created')
-        return redirect(f'manage_tests/{task.test_id}')
+        return redirect(f'/manage_tests/{task.test_id}')
+    return render_template('add_test.html', form=form)
+
+
+@app.route('/edit_test/<int:test_id>', methods=['GET', 'POST'])
+@login_required
+def edit_test_info(test_id):
+    if current_user.type != TEACHER:
+        abort(401)
+    db_sess = db_session.create_session()
+    form = TestForm()
+    if request.method == 'GET':
+        test = db_sess.query(Tests).filter(Tests.test_id == test_id,
+                                           Tests.teacher_id == current_user.id).first()
+        if not test:
+            abort(404)
+        form.name.data = test.name
+        form.about.data = test.about
+    if form.validate_on_submit():
+        if db_sess.query(Tests).filter(Tests.name == form.name.data,
+                                       Tests.teacher_id == current_user.id,
+                                       Tests.test_id != test_id).first() is not None:
+            return render_template('add_test.html', form=form,
+                                   message="Вы ранее создавали группу с таким именем")
+
+        test = db_sess.query(Tests).filter(Tests.test_id == test_id,
+                                           Tests.teacher_id == current_user.id).first()
+
+        test.name = form.name.data
+        test.about = form.about.data
+        db_sess.add(test)
+        db_sess.commit()
+        return redirect(f'/manage_tests/{test.test_id}')
     return render_template('add_test.html', form=form)
 
 
