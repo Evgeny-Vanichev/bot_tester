@@ -124,9 +124,26 @@ def rename_group(group_id):
     return render_template('add_group.html', form=form)
 
 
+@app.route('/delete_group/<int:group_id>', methods=['GET', 'POST'])
+@login_required
+def delete_group(group_id):
+    db_sess = db_session.create_session()
+    group = db_sess.query(Groups).filter(Groups.group_id == group_id,
+                                         Groups.teacher_id == current_user.id).first()
+    if group is None:
+        abort(404)
+    for student in db_sess.query(GroupParticipants).filter(
+        GroupParticipants.group_id == group.group_id
+    ):
+        db_sess.delete(student)
+    db_sess.delete(group)
+    db_sess.commit()
+    return redirect('/manage_groups')
+
+
 @app.route('/person_delete/<int:group_id>/<int:student_id>')
 @login_required
-def student_delete(group_id, student_id):
+def delete_student_from_group(group_id, student_id):
     db_sess = db_session.create_session()
     group = db_sess.query(Groups).filter(Groups.group_id == group_id,
                                          Groups.teacher_id == current_user.id).first()
@@ -145,7 +162,7 @@ def student_delete(group_id, student_id):
 
 @app.route('/person_add/<int:group_id>/<int:student_id>')
 @login_required
-def student_add(group_id, student_id):
+def add_student_to_group(group_id, student_id):
     db_sess = db_session.create_session()
     group = db_sess.query(Groups).filter(Groups.group_id == group_id,
                                          Groups.teacher_id == current_user.id).first()
@@ -315,8 +332,6 @@ def add_test():
             print('file_created')
         return redirect(f'manage_tests/{task.test_id}')
     return render_template('add_test.html', form=form)
-
-
 
 
 if __name__ == '__main__':
