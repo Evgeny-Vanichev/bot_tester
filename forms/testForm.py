@@ -3,7 +3,7 @@ from wtforms import StringField, SubmitField, FileField
 from wtforms.validators import DataRequired
 
 
-class TaskForm(FlaskForm):
+class TestForm(FlaskForm):
     name = StringField("Название", validators=[DataRequired()])
-    about = StringField("Описание вопроса", validators=[DataRequired()])
-    submit = SubmitField('Добавить вопрос')
+    about = StringField("Описание работы", validators=[DataRequired()])
+    submit = SubmitField('Добавить работу')

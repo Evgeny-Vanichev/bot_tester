@@ -18,7 +18,7 @@ class Users(SqlAlchemyBase, UserMixin):
     type = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
     hashed_password = sqlalchemy.Column(sqlalchemy.String, nullable=True)
 
-    tasks = orm.relation("Tasks", back_populates='teacher')
+    tests = orm.relation("Tests", back_populates='teacher')
 
     def set_password(self, password):
         self.hashed_password = generate_password_hash(password)

@@ -7,11 +7,12 @@
     {% if current_group == None %}
     <h2>Текущая группа не выбрана</h2>
     <hr class="my-3">
-    <a href="/groups" class="btn btn-secondary">Создать группу</a>
+    <a href="/new_group" class="btn btn-secondary">Создать группу</a>
     {% else %}
     <h4>Текущая группа - {{ current_group.group_name }}</h4>
     <hr class="my-3">
     <a href="/group/{{ current_group.group_id }}" class="btn btn-secondary">Переименовать группу</a>
+    <a href="/delete_group/{{ current_group.group_id }}" class="btn btn-danger">Удалить группу</a>
     {% endif %}
 </div>
 
@@ -76,7 +77,7 @@
 <aside>
     <ul class="list-group">
         <li class="list-group-item">
-            <a href="/manage_tasks"><h5>Управление<br>работами (главная)</h5></a>
+            <a href="/manage_tests"><h5>Управление<br>работами (главная)</h5></a>
         </li>
 
         <li class="list-group-item">

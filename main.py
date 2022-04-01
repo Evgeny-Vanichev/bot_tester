@@ -1,20 +1,21 @@
 import os
 from flask import Flask, render_template, redirect, request
 from werkzeug.exceptions import abort
+import json
 
 from data import db_session
 
 # Модели БД
 from data.group_participants import GroupParticipants
 from data.groups import Groups
-from data.tasks import Tasks
+from data.tests import Tests
 from data.users import Users
 
 # Формы для заполнения
 from forms.groupForm import GroupForm
 from forms.registerForm import RegisterForm
 from forms.loginForm import LoginForm
-from forms.taskForm import TaskForm
+from forms.testForm import TestForm
 
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 
@@ -49,7 +50,7 @@ def get_all_students():
 @app.route('/manage_groups/', defaults={'group_id': -1})
 @app.route('/manage_groups/<int:group_id>')
 @login_required
-def current_groups(group_id):
+def manage_groups(group_id):
     if current_user.type == TEACHER:
         db_sess = db_session.create_session()
 
@@ -71,7 +72,7 @@ def current_groups(group_id):
     return render_template("index_for_student.html")
 
 
-@app.route('/groups', methods=['GET', 'POST'])
+@app.route('/new_group', methods=['GET', 'POST'])
 @login_required
 def add_group():
     if current_user.type != TEACHER:
@@ -137,7 +138,7 @@ def student_add(group_id, student_id):
 @login_required
 def index():
     # а вообще надо-бы сверстать приветственную страничку
-    return redirect('/manage_tasks')
+    return redirect('/manage_tests')
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -221,13 +222,37 @@ def redirect_to_sign(response):
     return response
 
 
+@app.route('/manage_tests/', defaults={'test_id': -1})
+@app.route('/manage_tests/<int:test_id>')
+@login_required
+def manage_tasks(test_id):
+    if current_user.type == TEACHER:
+        db_sess = db_session.create_session()
+        # Все работы учителя. Используется для списка в боковой части экрана
+        result = db_sess.query(Tests).filter(Tests.teacher_id == current_user.id).all()
+        if test_id == -1:
+            return render_template(
+                'tests_for_teacher.html',
+                tests=result,
+                current_test=None
+            )
+        # Получение группы, с которой в данный момент работает учитель
+        current_test = db_sess.query(Tests).filter(Tests.test_id == test_id).first()
+        if current_test is None:  # Проверка, существования группы
+            abort(404)
+        return render_template("tests_for_teacher.html",
+                               tests=result,
+                               current_test=current_test)
+    return render_template("index_for_student.html")
+
+
 # ДАННЫЙ КОД ПОКА ЧТО НЕ РАБОТАЕТ!!!
 @app.route('/add_task', methods=['GET', 'POST'])
 def add_task():
-    form = TaskForm()
+    form = TestForm()
     if form.validate_on_submit():
         db_sess = db_session.create_session()
-        task = Tasks()
+        task = Tests()
         task.name = form.name.data
         task.about = form.about.data
         current_user.tasks.append(task)
@@ -238,15 +263,33 @@ def add_task():
                            form=form)
 
 
-@app.route('/manage_tasks')
-@login_required
-def current_tasks():
-    if current_user.type == TEACHER:
-        db_sess = db_session.create_session()
-        result = db_sess.query(Tasks).filter(Tasks.teacher_id == current_user.id)
-        return render_template("tasks_for_teacher.html", tasks=result, mode="tasks",
-                               current_task=None)
-    return render_template("tasks_for_student.html")
+@app.route('/new_test', methods=['GET', 'POST'])
+def add_test():
+    if current_user.type != TEACHER:
+        abort(401)
+    db_sess = db_session.create_session()
+
+    form = TestForm()
+    if form.validate_on_submit():
+        if db_sess.query(Tests).filter(Tests.name == form.name.data,
+                                       Tests.teacher_id == current_user.id).first() is not None:
+            return render_template('add_test.html', form=form,
+                                   message="Вы ранее создавали группу с таким именем")
+        # Создание новой группы
+        task = Tests(
+            name=form.name.data,
+            about=form.about.data,
+            teacher_id=current_user.id
+        )
+        db_sess.add(task)
+        db_sess.commit()
+        with open(f'user_data/{current_user.id}/{task.test_id}.json', mode='wt') as json_file:
+            json.dump({'groups': [], 'tasks': []}, json_file)
+            print('file_created')
+        return redirect(f'manage_tests/{task.test_id}')
+    return render_template('add_test.html', form=form)
+
+
 
 
 if __name__ == '__main__':
