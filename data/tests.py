@@ -4,13 +4,16 @@ from sqlalchemy import orm
 from flask_login import UserMixin
 
 
-class Tasks(SqlAlchemyBase, UserMixin):
+class Tests(SqlAlchemyBase, UserMixin):
     __tablename__ = 'tasks'
 
-    id = sqlalchemy.Column(sqlalchemy.Integer,
-                           primary_key=True, autoincrement=True)
+    test_id = sqlalchemy.Column(sqlalchemy.Integer,
+                                primary_key=True, autoincrement=True)
     name = sqlalchemy.Column(sqlalchemy.String, nullable=True)
     about = sqlalchemy.Column(sqlalchemy.String, nullable=True)
     teacher_id = sqlalchemy.Column(sqlalchemy.Integer,
                                    sqlalchemy.ForeignKey("users.id"))
     teacher = orm.relation('Users')
+
+    def __repr__(self):
+        return f'<Task> {self.name} {self.teacher}'

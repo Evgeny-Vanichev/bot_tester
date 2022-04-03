@@ -3,10 +3,12 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
     <link rel="stylesheet"
           href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
           integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
           crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/css/style.css">
     <title>{{title}}</title>
 </head>
 <body>
@@ -24,8 +26,20 @@
     </nav>
 </header>
 <!-- Begin page content -->
-<main role="main" class="container">
-    {% block content %}{% endblock %}
-</main>
+<section>
+    <div class="container">
+        <div class="row">
+            <main role="main" class="col-md-8 col-lg-9">
+                {% block content %}{% endblock %}
+            </main>
+            <div class="col-md-4 col-lg-3">
+                <div class="row">
+                    <aside class="col-sm-6 col-md-12">
+                        {% block sidebar %}{% endblock %}
+                    </aside>
+                </div>
+            </div>
+        </div>
+</section>
 </body>
 </html>

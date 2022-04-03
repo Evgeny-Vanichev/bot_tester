@@ -23,6 +23,15 @@
     {% endfor %}
     </p>
     <p>
+        {{ form.email.label }}<br>
+        {{ form.email(class="form-control", type="email") }}<br>
+        {% for error in form.email.errors %}
+    <div class="alert alert-danger" role="alert">
+        {{ error }}
+    </div>
+    {% endfor %}
+    </p>
+    <p>
         {{ form.password.label }}<br>
         {{ form.password(class="form-control", type="password") }}<br>
         {% for error in form.password.errors %}
@@ -40,10 +49,21 @@
     </p>
     {% endfor %}
     </p>
+
     <p>
-        {{ form.contact.label }}<br>
-        {{ form.contact(class="form-control", type="contact") }}<br>
-        {% for error in form.contact.errors %}
+        {{ form.contact_type.label }}<br>
+        {{ form.contact_type(class="form-control", type="select") }}<br>
+        {% for error in form.contact_type.errors %}
+    <div class="alert alert-danger" role="alert">
+        {{ error }}
+    </div>
+    {% endfor %}
+    </p>
+
+    <p>
+        {{ form.contact_link.label }}<br>
+        {{ form.contact_link(class="form-control", type="contact") }}<br>
+        {% for error in form.contact_link.errors %}
     <div class="alert alert-danger" role="alert">
         {{ error }}
     </div>
@@ -57,16 +77,7 @@
         {{ error }}
     </div>
     {% endfor %}
-    </p>
-    <p>
-        {{ form.grade.label }}<br>
-        {{ form.grade(class="form-control", type="grade") }}<br>
-        {% for error in form.grade.errors %}
-    <div class="alert alert-danger" role="alert">
-        {{ error }}
-    </div>
-    {% endfor %}
-    </p>
+
     <p>
     <p>{{ form.submit(type="submit", class="btn btn-primary") }}</p>
     {{message}}
