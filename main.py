@@ -4,6 +4,7 @@ import shutil
 
 from flask import Flask, render_template, redirect, request
 from werkzeug.exceptions import abort
+from werkzeug.utils import secure_filename
 
 from data import db_session
 
@@ -17,15 +18,19 @@ from data.users import Users
 from forms.groupForm import GroupForm
 from forms.registerForm import RegisterForm
 from forms.loginForm import LoginForm
+from forms.taskForm import TaskForm
 from forms.testForm import TestForm
 
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
+
+from static.tools.tools import transliterate
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'yandexlyceum_secret_key'
 app.config['PERMANENT_SESSION_LIFETIME'] = __import__("datetime").timedelta(
     days=365
 )
+app.config['UPLOAD_FOLDER'] = os.path.join(os.getcwd(), 'user_data')
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -248,8 +253,7 @@ def register():
         db_sess.add(user)
         db_sess.commit()
         if user.type == TEACHER:
-            filepath = os.getcwd()
-            os.makedirs(filepath + f'/user_data/{user.id}')
+            os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], str(user.id)))
         return redirect('/login')
 
     return render_template('register.html', title='Регистрация', form=form)
@@ -272,7 +276,7 @@ def redirect_to_sign(response):
 @app.route('/manage_tests/', defaults={'test_id': -1})
 @app.route('/manage_tests/<int:test_id>')
 @login_required
-def manage_tasks(test_id):
+def manage_tests(test_id):
     if current_user.type == TEACHER:
         db_sess = db_session.create_session()
         # Все работы учителя. Используется для списка в боковой части экрана
@@ -294,17 +298,26 @@ def manage_tasks(test_id):
 
 
 # ДАННЫЙ КОД ПОКА ЧТО НЕ РАБОТАЕТ!!!
-@app.route('/add_task', methods=['GET', 'POST'])
-def add_task():
-    form = TestForm()
+@app.route('/add_task/<int:test_id>', methods=['GET', 'POST'])
+def add_task(test_id):
+    form = TaskForm()
     if form.validate_on_submit():
-        db_sess = db_session.create_session()
-        task = Tests()
-        task.name = form.name.data
-        task.about = form.about.data
-        current_user.tasks.append(task)
-        db_sess.merge(current_user)
-        db_sess.commit()
+        path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id))
+
+        filenames = []
+        for file in form.files.data:
+            filename = secure_filename(transliterate(file.filename.replace(' ', '_')))
+            file.save(os.path.join(path,filename))
+            filenames.append(filename)
+        task = {
+            "question": form.question.data,
+            "extra_files": filenames
+        }
+        with open(os.path.join(path, f'{test_id}.json'), mode='rt') as json_file:
+            data = json.load(json_file)
+            data['tasks'].append(task)
+        with open(os.path.join(path, f'{test_id}.json'), mode='wt') as json_file:
+            json.dump(data, json_file)
         return redirect('/')
     return render_template('task.html', title='Добавление вопроса',
                            form=form)
@@ -332,11 +345,10 @@ def add_test():
         db_sess.add(task)
         db_sess.commit()
 
-        path = os.path.abspath(os.getcwd() + f'/user_data/{current_user.id}/{task.test_id}')
+        path = os.path.join(app.config['UPLOAD_FOLDER'], f'{current_user.id}/{task.test_id}')
         os.makedirs(path)
-        with open(path + f'/{task.test_id}.json', mode='wt') as json_file:
+        with open(os.path.join(path, f'{task.test_id}.json'), mode='wt') as json_file:
             json.dump({'groups': [], 'tasks': []}, json_file)
-        print(os.getcwd())
         return redirect(f'/manage_tests/{task.test_id}')
     return render_template('add_test.html', form=form)
 
@@ -385,8 +397,8 @@ def delete_test(test_id):
     db_sess.delete(test)
     db_sess.commit()
 
-    path = os.path.abspath(os.getcwd() + f'/user_data/{current_user.id}')
-    shutil.rmtree(path + f'/{test_id}')
+    path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id))
+    shutil.rmtree(os.path.join(path, str(test_id)))
     return redirect('/manage_tests')
 
 
