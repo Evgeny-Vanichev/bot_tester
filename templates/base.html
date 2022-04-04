@@ -17,8 +17,12 @@
     <nav class="navbar navbar-light light-blue">
         <a class="navbar-brand" href="#">Название</a>
         {% if current_user.is_authenticated %}
+        <a href="/home">Home</a>
+        <a href="/">Main page</a>
         <a class="navbar-brand" href="/logout">{{ current_user.name }}</a>
         {% else %}
+        <a href="/">Home</a>
+        <a href="/">Main page</a>
         <p>
             <a class="btn blue" href="/register">Зарегистрироваться</a>
             <a class="btn blue" href="/login">Войти</a>

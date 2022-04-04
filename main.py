@@ -74,7 +74,18 @@ def manage_groups(group_id, page_id=1):
                                current_people=current_people,
                                page_id=page_id,
                                len=len(current_people))
-    return render_template("index_for_student.html")
+
+    db_sess = db_session.create_session()
+
+    # ищем, в каких группах состоит студент
+    s = []
+    result = db_sess.query(GroupParticipants).filter(GroupParticipants.student_id == current_user.id).all()
+    print(result)
+    for i in result:
+        res = db_sess.query(Groups).filter(Groups.group_id == i.group_id).first()
+        print(res)
+        s.append(res.group_name)
+    return render_template("groups_for_student.html", groups=s, len=len(s))
 
 
 @app.route('/new_group', methods=['GET', 'POST'])
@@ -187,10 +198,13 @@ def add_student_to_group(group_id, student_id):
 
 
 @app.route("/")
-@login_required
 def index():
-    # а вообще надо-бы сверстать приветственную страничку
-    return redirect('/manage_tests')
+    return render_template("index.html")
+
+
+@app.route("/home")
+def home():
+    return redirect("/manage_tests")
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -202,7 +216,7 @@ def login():
             Users.name == form.name.data, Users.surname == form.surname.data).first()
         if user and user.check_password(form.password.data):
             login_user(user)
-            return redirect("/")
+            return redirect("/home")
         return render_template('login.html',
                                message="Неправильный логин или пароль",
                                form=form)
@@ -262,7 +276,7 @@ def register():
 @login_required
 def logout():
     logout_user()
-    return redirect("/login")
+    return redirect('/')
 
 
 @app.after_request
@@ -293,7 +307,20 @@ def manage_tasks(test_id):
         return render_template("tests_for_teacher.html",
                                tests=result,
                                current_test=current_test)
-    return render_template("index_for_student.html")
+
+    # код раскомментить после того, как добавится id студента в бд tasks + не трогать даже после этого, так как я недописала правильно его
+    # как раз из-за нехватки id :)
+    # db_sess = db_session.create_session()
+    #
+    # # ищем, в каких группах состоит студент
+    # s = []
+    # result = db_sess.query(GroupParticipants).filter(GroupParticipants.student_id == current_user.id).all()
+    # print(result)
+    # for i in result:
+    #     res = db_sess.query(Groups).filter(Groups.group_id == i.group_id).first()
+    #     print(res)
+    #     s.append(res.group_name)
+    # return render_template("groups_for_student.html", groups=s, len=len(s))
 
 
 # ДАННЫЙ КОД ПОКА ЧТО НЕ РАБОТАЕТ!!!
@@ -308,7 +335,7 @@ def add_task():
         current_user.tasks.append(task)
         db_sess.merge(current_user)
         db_sess.commit()
-        return redirect('/')
+        return redirect('/home')
     return render_template('task.html', title='Добавление вопроса',
                            form=form)
 
