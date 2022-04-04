@@ -1,7 +1,9 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h1> {{ current_user.type }}</h1>
-<h1>You are a student</h1>
-<h1>In development...</h1>
+<h1 class="display-3">Здравствуйте, {{ current_user.name }}!</h1>
+
+{% for group in groups %}
+<p>{{ group.name }}</p>
+{% endfor %}
 {% endblock %}

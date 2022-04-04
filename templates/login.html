@@ -1,37 +1,39 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h1>Авторизация в системе</h1>
+<h1 class="display-3 text-center">Авторизация в системе</h1>
+<div class="container shadow-lg p-3 mb-5 bg-body rounded">
     <form action="" method="post">
         {{ form.hidden_tag() }}
         <p>
             {{ form.name.label }}<br>
             {{ form.name(class="form-control", type="name") }}<br>
             {% for error in form.name.errors %}
-                <div class="alert alert-danger" role="alert">
-                    {{ error }}
-                </div>
-            {% endfor %}
+        <div class="alert alert-danger" role="alert">
+            {{ error }}
+        </div>
+        {% endfor %}
         </p>
         <p>
             {{ form.surname.label }}<br>
             {{ form.surname(class="form-control", type="surname") }}<br>
             {% for error in form.surname.errors %}
-                <div class="alert alert-danger" role="alert">
-                    {{ error }}
-                </div>
-            {% endfor %}
+        <div class="alert alert-danger" role="alert">
+            {{ error }}
+        </div>
+        {% endfor %}
         </p>
         <p>
             {{ form.password.label }}<br>
             {{ form.password(class="form-control", type="password") }}<br>
             {% for error in form.password.errors %}
-                <div class="alert alert-danger" role="alert">
-                    {{ error }}
-                </div>
-            {% endfor %}
+        <div class="alert alert-danger" role="alert">
+            {{ error }}
+        </div>
+        {% endfor %}
         </p>
         <p>{{ form.submit(type="submit", class="btn btn-primary") }}</p>
         <div>{{ message }}</div>
     </form>
+</div>
 {% endblock %}
