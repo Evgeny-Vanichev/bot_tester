@@ -12,6 +12,7 @@ from data.group_participants import GroupParticipants
 from data.groups import Groups
 from data.tests import Tests
 from data.users import Users
+from data.tests_and_groups import TestsAndGroups
 
 # Формы для заполнения
 from forms.groupForm import GroupForm
