@@ -13,6 +13,7 @@ from data.group_participants import GroupParticipants
 from data.groups import Groups
 from data.tests import Tests
 from data.users import Users
+from data.tests_and_groups import TestsAndGroups
 
 # Формы для заполнения
 from forms.groupForm import GroupForm
@@ -56,8 +57,9 @@ def get_all_students():
 
 @app.route('/manage_groups/', defaults={'group_id': -1})
 @app.route('/manage_groups/<int:group_id>')
+@app.route('/manage_groups/<int:group_id>/<int:page_id>')
 @login_required
-def manage_groups(group_id):
+def manage_groups(group_id, page_id=1):
     if current_user.type == TEACHER:
         db_sess = db_session.create_session()
 
@@ -75,8 +77,21 @@ def manage_groups(group_id):
         return render_template("groups_for_teacher.html",
                                groups=result,
                                current_group=current_group,
-                               current_people=current_people)
-    return render_template("index_for_student.html")
+                               current_people=current_people,
+                               page_id=page_id,
+                               len=len(current_people))
+
+    db_sess = db_session.create_session()
+
+    # ищем, в каких группах состоит студент
+    s = []
+    result = db_sess.query(GroupParticipants).filter(GroupParticipants.student_id == current_user.id).all()
+    print(result)
+    for i in result:
+        res = db_sess.query(Groups).filter(Groups.group_id == i.group_id).first()
+        print(res)
+        s.append(res.group_name)
+    return render_template("groups_for_student.html", groups=s, len=len(s))
 
 
 @app.route('/new_group', methods=['GET', 'POST'])
@@ -151,6 +166,16 @@ def delete_group(group_id):
     return redirect('/manage_groups')
 
 
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+
+@app.route("/home")
+def home():
+    return redirect("/manage_tests")
+
+
 @app.route('/person_delete/<int:group_id>/<int:student_id>')
 @login_required
 def delete_student_from_group(group_id, student_id):
@@ -188,13 +213,6 @@ def add_student_to_group(group_id, student_id):
     return redirect(f'/manage_groups/{group_id}')
 
 
-@app.route("/")
-@login_required
-def index():
-    # а вообще надо-бы сверстать приветственную страничку
-    return redirect('/manage_tests')
-
-
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     form = LoginForm()
@@ -204,7 +222,7 @@ def login():
             Users.name == form.name.data, Users.surname == form.surname.data).first()
         if user and user.check_password(form.password.data):
             login_user(user)
-            return redirect("/")
+            return redirect("/home")
         return render_template('login.html',
                                message="Неправильный логин или пароль",
                                form=form)
@@ -263,7 +281,7 @@ def register():
 @login_required
 def logout():
     logout_user()
-    return redirect("/login")
+    return redirect('/')
 
 
 @app.after_request
@@ -276,7 +294,7 @@ def redirect_to_sign(response):
 @app.route('/manage_tests/', defaults={'test_id': -1})
 @app.route('/manage_tests/<int:test_id>')
 @login_required
-def manage_tests(test_id):
+def manage_tasks(test_id):
     if current_user.type == TEACHER:
         db_sess = db_session.create_session()
         # Все работы учителя. Используется для списка в боковой части экрана
@@ -291,21 +309,29 @@ def manage_tests(test_id):
         current_test = db_sess.query(Tests).filter(Tests.test_id == test_id).first()
         if current_test is None:  # Проверка, существования группы
             abort(404)
-        with open(os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id),
-                               f'{test_id}.json'), mode='rt') as json_file:
-            tasks = json.load(json_file)['tasks']
-        print(tasks)
         return render_template("tests_for_teacher.html",
                                tests=result,
-                               current_test=current_test,
-                               tasks=tasks,
-                               current_user=current_user)
-    return render_template("index_for_student.html")
+                               current_test=current_test)
+
+    # код раскомментить после того, как добавится id студента в бд tasks + не трогать даже после этого, так как я недописала правильно его
+    # как раз из-за нехватки id :)
+    # db_sess = db_session.create_session()
+    #
+    # # ищем, в каких группах состоит студент
+    # s = []
+    # result = db_sess.query(GroupParticipants).filter(GroupParticipants.student_id == current_user.id).all()
+    # print(result)
+    # for i in result:
+    #     res = db_sess.query(Groups).filter(Groups.group_id == i.group_id).first()
+    #     print(res)
+    #     s.append(res.group_name)
+    # return render_template("groups_for_student.html", groups=s, len=len(s))
 
 
-@app.route('/add_task/<int:test_id>', methods=['GET', 'POST'])
-def add_task(test_id):
-    form = TaskForm()
+# ДАННЫЙ КОД ПОКА ЧТО НЕ РАБОТАЕТ!!!
+@app.route('/add_task', methods=['GET', 'POST'])
+def add_task():
+    form = TestForm()
     if form.validate_on_submit():
         path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id))
 
@@ -462,23 +488,17 @@ def manage_tasks_for_test(test_id):
                         f'{test_id}.json')
     with open(path, mode='rt') as jsonfile:
         data = json.load(jsonfile)
+        groups_ids = data['tasks']
     # Надо снова добавить проверку на дурака
     db_sess = db_session.create_session()
-    result = db_sess.query(Tests).filter(Tests.teacher_id == current_user.id).all()
+    groups = [(group, group.group_id in groups_ids) for group in db_sess.query(Groups).all()]
 
-    # Получение группы, с которой в данный момент работает учитель
-    current_test = db_sess.query(Tests).filter(Tests.test_id == test_id).first()
-    if current_test is None:  # Проверка, существования группы
-        abort(404)
-    path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id))
-    with open(os.path.join(path, f'{test_id}.json'), mode='rt') as json_file:
-        tasks = json.load(json_file)['tasks']
-    print(tasks)
-    return render_template("tests_tasks_for_teacher.html",
-                           tests=result,
-                           current_test=current_test,
-                           tasks=tasks,
-                           current_user=current_user)
+    test = db_sess.query(Tests).filter(Tests.test_id == test_id).first()
+    result = db_sess.query(Tests).filter(Tests.teacher_id == current_user.id).all()
+    return render_template('tests_tasks_for_teacher.html',
+                           groups=groups,
+                           current_test=test,
+                           tests=result)
 
 
 if __name__ == '__main__':
