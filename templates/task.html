@@ -19,7 +19,7 @@
         {{ form.files.label }}<br>
         {{ form.files() }}<br>
         {% for error in form.files.errors %}
-    <div class="alert alert-danger" role="alert">
+            <div class="alert alert-danger" role="alert">
         {{ error }}
     </div>
     {% endfor %}

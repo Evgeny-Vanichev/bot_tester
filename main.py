@@ -359,8 +359,7 @@ def add_task(test_id):
         with open(os.path.join(path, f'{test_id}.json'), mode='wt') as json_file:
             json.dump(data, json_file)
         return redirect(f'/manage_tests/{test_id}/1')
-    return render_template('task.html', title='Добавление вопроса',
-                           form=form)
+    return render_template('task.html', title='Добавление вопроса', form=form)
 
 
 @app.route('/new_test', methods=['GET', 'POST'])
@@ -465,7 +464,7 @@ def manage_groups_for_test(test_id):
 
 @app.route('/group_add/<int:test_id>/<int:group_id>')
 @login_required
-def add_group_to_Test(test_id, group_id):
+def add_group_to_test(test_id, group_id):
     path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id),
                         f'{test_id}.json')
     with open(path, mode='rt', encoding='utf-8') as jsonfile:
@@ -510,6 +509,41 @@ def manage_tasks_for_test(test_id):
                            current_test=test,
                            tests=tests,
                            mode=1)
+
+
+@app.route("/delete_material/<int:test_id>/<int:question_id>/<path:filename>")
+@login_required
+def delete_material(test_id, filename, question_id):
+    path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id))
+    with open(os.path.join(path, f'{test_id}.json'), mode='rt', encoding='utf-8') as jsonfile:
+        data = json.load(jsonfile)
+    data['tasks'][question_id - 1]['extra_files'].remove(filename)
+    with open(os.path.join(path, f'{test_id}.json'), mode='wt', encoding='utf-8') as jsonfile:
+        json.dump(data, jsonfile)
+    os.remove(os.path.join(path, filename))
+    return redirect(f'/manage_tests/{test_id}/1')
+
+
+@app.route('/edit_task/<int:test_id>/<int:task_id>')
+@login_required
+def edit_task(test_id, task_id):
+    ...
+
+
+@app.route('/delete_task/<int:test_id>/<int:task_id>')
+@login_required
+def delete_task(test_id, task_id):
+    if current_user.type != TEACHER:
+        abort(401)
+    path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id))
+    with open(os.path.join(path, f'{test_id}.json'), mode='rt', encoding='utf-8') as jsonfile:
+        data = json.load(jsonfile)
+    for file in data['tasks'][task_id - 1]['extra_files']:
+        os.remove(os.path.join(path, file))
+    del data['tasks'][task_id - 1]
+    with open(os.path.join(path, f'{test_id}.json'), mode='wt', encoding='utf-8') as jsonfile:
+        json.dump(data, jsonfile)
+    return redirect(f'/manage_tests/{test_id}/1')
 
 
 if __name__ == '__main__':
