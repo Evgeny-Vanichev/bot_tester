@@ -329,9 +329,9 @@ def manage_tasks(test_id):
 
 
 # ДАННЫЙ КОД ПОКА ЧТО НЕ РАБОТАЕТ!!!
-@app.route('/add_task', methods=['GET', 'POST'])
-def add_task():
-    form = TestForm()
+@app.route('/add_task/<int:test_id>', methods=['GET', 'POST'])
+def add_task(test_id):
+    form = TaskForm()
     if form.validate_on_submit():
         path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id))
 
@@ -349,7 +349,7 @@ def add_task():
             data['tasks'].append(task)
         with open(os.path.join(path, f'{test_id}.json'), mode='wt') as json_file:
             json.dump(data, json_file)
-        return redirect('/')
+        return redirect(f'/view_tasks/{test_id}')
     return render_template('task.html', title='Добавление вопроса',
                            form=form)
 
@@ -484,21 +484,21 @@ def discard_group_from_test(test_id, group_id):
 @app.route('/view_tasks/<int:test_id>')
 @login_required
 def manage_tasks_for_test(test_id):
-    path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id),
-                        f'{test_id}.json')
+    path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id), f'{test_id}.json')
     with open(path, mode='rt') as jsonfile:
         data = json.load(jsonfile)
-        groups_ids = data['tasks']
+        tasks = data['tasks']
+        groups_ids = data['groups']
     # Надо снова добавить проверку на дурака
     db_sess = db_session.create_session()
-    groups = [(group, group.group_id in groups_ids) for group in db_sess.query(Groups).all()]
-
+    tests = [test for test in db_sess.query(Tests).all()]
     test = db_sess.query(Tests).filter(Tests.test_id == test_id).first()
-    result = db_sess.query(Tests).filter(Tests.teacher_id == current_user.id).all()
+    # result = db_sess.query(Tests).filter(Tests.teacher_id == current_user.id).all()
+
     return render_template('tests_tasks_for_teacher.html',
-                           groups=groups,
+                           tasks=tasks,
                            current_test=test,
-                           tests=result)
+                           tests=tests)
 
 
 if __name__ == '__main__':
