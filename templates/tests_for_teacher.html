@@ -13,8 +13,8 @@
     <a href="/edit_test/{{ current_test.test_id }}" class="btn btn-secondary">Переименовать работу</a>
     <a href="/delete_test/{{ current_test.test_id }}" class="btn btn-danger">Удалить работу</a>
     <hr class="my-3">
-    <a href="/view_tasks/{{ current_test.test_id }}" class="btn btn-secondary">Просмотр заданий</a>
-    <a href="/view_groups/{{ current_test.test_id }}" class="btn btn-secondary">Просмотр групп</a>
+    <a href="/manage_tests/{{ current_test.test_id }}/1" class="btn btn-secondary">Просмотр заданий</a>
+    <a href="/manage_tests/{{ current_test.test_id }}/2" class="btn btn-secondary">Просмотр групп</a>
     {% endif %}
 </div>
 
@@ -34,20 +34,19 @@
                 {% if test.test_id == current_test.test_id %}
                 <li class="list-group-item active">
                     <div>
-                        <a href="/manage_tests/{{ test.test_id }}" style="color:white">{{ test.name }}</a>
+                        <a href="/manage_tests/{{ test.test_id }}/{{ mode }}" style="color:white">{{ test.name }}</a>
                         <p>{{ test.about }}</p>
                     </div>
                 </li>
                 {% else %}
                 <li class="list-group-item">
                     <div>
-                        <a href="/manage_tests/{{ test.test_id }}">{{ test.name }}</a>
+                        <a href="/manage_tests/{{ test.test_id }}/{{ mode }}">{{ test.name }}</a>
                         <p>{{ test.about }}</p>
                     </div>
                 </li>
                 {% endif %}
                 {% endfor %}
-
             </ul>
         </li>
 

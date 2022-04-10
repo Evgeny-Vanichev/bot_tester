@@ -43,7 +43,7 @@
         </td>
         {% if flag == True %}
         <td scope="col">
-            <a href="/person_delete/{{ current_group.group_id }}/{{ person.id }}"
+            <a href="/person_delete/{{ current_group.group_id }}/{{ page_id }}/{{ person.id }}"
                class="btn btn-danger">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
                      class="bi bi-bookmark-dash" viewBox="0 0 16 16">
@@ -54,7 +54,7 @@
         </td>
         {% else %}
         <td scope="col">
-            <a href="/person_add/{{ current_group.group_id }}/{{ person.id }}"
+            <a href="/person_add/{{ current_group.group_id }}/{{ page_id }}/{{ person.id }}"
                class="btn btn-primary">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
                      class="bi bi-bookmark-plus" viewBox="0 0 16 16">
