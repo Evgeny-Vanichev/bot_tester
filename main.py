@@ -74,12 +74,18 @@ def manage_groups(group_id, page_id=1):
             GroupParticipants.group_id == group_id)]
         # Получение объектов Users по Id
         current_people = [(student, student.id in users_ids) for student in get_all_students()]
+
+        prev_page = max(page_id - 1, 1)
+        next_page = min(page_id + 1, (len(current_people) + 4) // 5)
+        # (a + b - 1) // a - округление вверх
+
         return render_template("groups_for_teacher.html",
                                groups=result,
                                current_group=current_group,
                                current_people=current_people,
                                page_id=page_id,
-                               len=len(current_people))
+                               prev_page=prev_page,
+                               next_page=next_page)
 
     db_sess = db_session.create_session()
 
