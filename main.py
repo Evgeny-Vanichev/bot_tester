@@ -524,10 +524,32 @@ def delete_material(test_id, filename, question_id):
     return redirect(f'/manage_tests/{test_id}/1')
 
 
-@app.route('/edit_task/<int:test_id>/<int:task_id>')
+@app.route('/edit_task/<int:test_id>/<int:task_id>', methods=['GET', 'POST'])
 @login_required
 def edit_task(test_id, task_id):
-    ...
+    if current_user.type != TEACHER:
+        abort(401)
+    form = TaskForm()
+    path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id))
+    with open(os.path.join(path, f'{test_id}.json'), mode='rt', encoding='utf-8') as jsonfile:
+        data = json.load(jsonfile)
+
+    if request.method == 'GET':
+        form.question.data = data['tasks'][task_id - 1]['question']
+
+    if form.validate_on_submit():
+        data['tasks'][task_id - 1]['question'] = form.question.data
+        filenames = []
+        for file in form.files.data:
+            filename = secure_filename(transliterate(file.filename.replace(' ', '_')))
+            file.save(os.path.join(path, filename))
+            filenames.append(filename)
+        data['tasks'][task_id - 1]['extra_files'].extend(filenames)
+        with open(os.path.join(path, f'{test_id}.json'), mode='wt', encoding='utf-8') as jsonfile:
+            json.dump(data, jsonfile)
+        return redirect(f'/manage_tests/{test_id}/1')
+    return render_template('task.html', form=form)
+
 
 
 @app.route('/delete_task/<int:test_id>/<int:task_id>')
