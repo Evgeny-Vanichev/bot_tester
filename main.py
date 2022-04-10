@@ -30,7 +30,7 @@ app.config['SECRET_KEY'] = 'yandexlyceum_secret_key'
 app.config['PERMANENT_SESSION_LIFETIME'] = __import__("datetime").timedelta(
     days=365
 )
-app.config['UPLOAD_FOLDER'] = os.path.join(os.getcwd(), 'user_data')
+app.config['UPLOAD_FOLDER'] = os.path.join(os.getcwd(), 'static', 'user_data')
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -291,13 +291,18 @@ def manage_tests(test_id):
         current_test = db_sess.query(Tests).filter(Tests.test_id == test_id).first()
         if current_test is None:  # Проверка, существования группы
             abort(404)
+        with open(os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id),
+                               f'{test_id}.json'), mode='rt') as json_file:
+            tasks = json.load(json_file)['tasks']
+        print(tasks)
         return render_template("tests_for_teacher.html",
                                tests=result,
-                               current_test=current_test)
+                               current_test=current_test,
+                               tasks=tasks,
+                               current_user=current_user)
     return render_template("index_for_student.html")
 
 
-# ДАННЫЙ КОД ПОКА ЧТО НЕ РАБОТАЕТ!!!
 @app.route('/add_task/<int:test_id>', methods=['GET', 'POST'])
 def add_task(test_id):
     form = TaskForm()
@@ -307,7 +312,7 @@ def add_task(test_id):
         filenames = []
         for file in form.files.data:
             filename = secure_filename(transliterate(file.filename.replace(' ', '_')))
-            file.save(os.path.join(path,filename))
+            file.save(os.path.join(path, filename))
             filenames.append(filename)
         task = {
             "question": form.question.data,
@@ -405,7 +410,9 @@ def delete_test(test_id):
 @app.route('/view_groups/<int:test_id>')
 @login_required
 def manage_groups_for_test(test_id):
-    with open(f'user_data\\{current_user.id}\\{test_id}\\{test_id}.json', mode='rt') as jsonfile:
+    path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id),
+                        f'{test_id}.json')
+    with open(path, mode='rt') as jsonfile:
         data = json.load(jsonfile)
         groups_ids = data['groups']
     # Надо снова добавить проверку на дурака
@@ -423,12 +430,13 @@ def manage_groups_for_test(test_id):
 @app.route('/group_add/<int:test_id>/<int:group_id>')
 @login_required
 def add_group_to_Test(test_id, group_id):
-    filename = f'user_data\\{current_user.id}\\{test_id}\\{test_id}.json'
-    with open(filename, mode='rt', encoding='utf-8') as jsonfile:
+    path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id),
+                        f'{test_id}.json')
+    with open(path, mode='rt', encoding='utf-8') as jsonfile:
         data = json.load(jsonfile)
         if group_id not in data['groups']:
             data['groups'].append(group_id)
-    with open(filename, mode='wt', encoding='utf-8') as jsonfile:
+    with open(path, mode='wt', encoding='utf-8') as jsonfile:
         json.dump(data, jsonfile)
     return redirect(f'/view_groups/{test_id}')
 
@@ -436,12 +444,13 @@ def add_group_to_Test(test_id, group_id):
 @app.route("/group_discard/<int:test_id>/<int:group_id>")
 @login_required
 def discard_group_from_test(test_id, group_id):
-    filename = f'user_data\\{current_user.id}\\{test_id}\\{test_id}.json'
-    with open(filename, mode='rt', encoding='utf-8') as jsonfile:
+    path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id),
+                        f'{test_id}.json')
+    with open(path, mode='rt', encoding='utf-8') as jsonfile:
         data = json.load(jsonfile)
         if group_id in data['groups']:
             data['groups'].remove(group_id)
-    with open(filename, mode='wt', encoding='utf-8') as jsonfile:
+    with open(path, mode='wt', encoding='utf-8') as jsonfile:
         json.dump(data, jsonfile)
     return redirect(f'/view_groups/{test_id}')
 
@@ -449,19 +458,27 @@ def discard_group_from_test(test_id, group_id):
 @app.route('/view_tasks/<int:test_id>')
 @login_required
 def manage_tasks_for_test(test_id):
-    with open(f'user_data\\{current_user.id}\\{test_id}\\{test_id}.json', mode='rt') as jsonfile:
+    path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id),
+                        f'{test_id}.json')
+    with open(path, mode='rt') as jsonfile:
         data = json.load(jsonfile)
-        groups_ids = data['tasks']
     # Надо снова добавить проверку на дурака
     db_sess = db_session.create_session()
-    groups = [(group, group.group_id in groups_ids) for group in db_sess.query(Groups).all()]
-
-    test = db_sess.query(Tests).filter(Tests.test_id == test_id).first()
     result = db_sess.query(Tests).filter(Tests.teacher_id == current_user.id).all()
-    return render_template('tests_tasks_for_teacher.html',
-                           groups=groups,
-                           current_test=test,
-                           tests=result)
+
+    # Получение группы, с которой в данный момент работает учитель
+    current_test = db_sess.query(Tests).filter(Tests.test_id == test_id).first()
+    if current_test is None:  # Проверка, существования группы
+        abort(404)
+    path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id))
+    with open(os.path.join(path, f'{test_id}.json'), mode='rt') as json_file:
+        tasks = json.load(json_file)['tasks']
+    print(tasks)
+    return render_template("tests_tasks_for_teacher.html",
+                           tests=result,
+                           current_test=current_test,
+                           tasks=tasks,
+                           current_user=current_user)
 
 
 if __name__ == '__main__':

@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="jumbotron">
+    <h1 class="display-3">Здравствуйте, {{ current_user.name }}!</h1>
+    {% if current_test == None %}
+    <h2>Текущая работа не выбрана</h2>
+    <hr class="my-3">
+    <a href="/new_test" class="btn btn-secondary">Создать работу</a>
+    {% else %}
+    <h4>Текущая работа - {{ current_test.name }}</h4>
+    <hr class="my-3">
+    <a href="/edit_test/{{ current_test.test_id }}" class="btn btn-secondary">Переименовать
+        работу</a>
+    <a href="/delete_test/{{ current_test.test_id }}" class="btn btn-danger">Удалить работу</a>
+    <hr class="my-3">
+    <a href="/view_tasks/{{ current_test.test_id }}" class="btn btn-secondary">Просмотр заданий</a>
+    <a href="/view_groups/{{ current_test.test_id }}" class="btn btn-secondary">Просмотр групп</a>
+    {% endif %}
+</div>
+
+<a href="/add_task/{{ current_test.test_id }}" class="btn btn-secondary">Добавить задание</a>
+
+{% for task in tasks %}
+<div class="jumbotron">
+    <h1>{{ task['name'] }}</h1>
+    <hr class="my-4">
+    <p class="lead">{{ task['question'] }}</p>
+    {% for filename in task['extra_files'] %}
+    {% if filename.split('.')[-1].lower() in ['bmp', 'jpeg', 'jpg', 'png'] %}
+    <img src="/static/user_data/{{ current_user.id }}/{{ current_test.test_id }}/{{ filename }}">
+    {% endif %}
+    <p>
+        <a href="/static/user_data/{{ current_user.id }}/{{ current_test.test_id }}/{{ filename }}" download>
+            {{ filename }}
+        </a>
+    </p>
+    {% endfor %}
+    <hr class="my-4">
+    <a href="/edit_task/{{ current_test.test_id }}/{{ loop.index }}" class="btn btn-warning">Изменить</a>
+    <a href="/delete_task/{{ current_test.test_id }}/{{ loop.index }}" class="btn btn-danger">Удалить</a>
+</div>
+{% endfor %}
+
+{% endblock %}
+
+
+{% block sidebar %}
+<aside>
+    <ul class="list-group">
+        <li class="list-group-item">
+            <a href="/manage_tests"><h5>Управление<br>работами (главная)</h5></a>
+            <ul class="list-group">
+                {% for test in tests %}
+                {% if test.test_id == current_test.test_id %}
+                <li class="list-group-item active">
+                    <div>
+                        <a href="/manage_tests/{{ test.test_id }}" style="color:white">{{ test.name
+                            }}</a>
+                        <p>{{ test.about }}</p>
+                    </div>
+                </li>
+                {% else %}
+                <li class="list-group-item">
+                    <div>
+                        <a href="/manage_tests/{{ test.test_id }}">{{ test.name }}</a>
+                        <p>{{ test.about }}</p>
+                    </div>
+                </li>
+                {% endif %}
+                {% endfor %}
+
+            </ul>
+        </li>
+        <li class="list-group-item">
+            <a href="/manage_groups"><h5>Управление<br>группами (главная)</h5></a>
+        </li>
+    </ul>
+</aside>
+{% endblock %}
