@@ -1,3 +1,4 @@
+import datetime
 import os
 import json
 import shutil
@@ -300,7 +301,7 @@ def redirect_to_sign(response):
 @app.route('/manage_tests/', defaults={'test_id': -1})
 @app.route('/manage_tests/<int:test_id>')
 @login_required
-def manage_tasks(test_id=-1):
+def manage_tests(test_id=-1):
     if current_user.type == TEACHER:
         db_sess = db_session.create_session()
         # Все работы учителя. Используется для списка в боковой части экрана
@@ -320,10 +321,11 @@ def manage_tasks(test_id=-1):
                                tests=result,
                                current_test=current_test)
 
-    # код раскомментить после того, как добавится id студента в бд tasks + не трогать даже после этого, так как я недописала правильно его
+    # код раскомментить после того, как добавится id студента в бд tasks
+    # + не трогать даже после этого, так как я недописала правильно его
     # как раз из-за нехватки id :)
     # db_sess = db_session.create_session()
-    #
+    # #
     # # ищем, в каких группах состоит студент
     # s = []
     # result = db_sess.query(GroupParticipants).filter(GroupParticipants.student_id == current_user.id).all()
@@ -375,20 +377,24 @@ def add_test():
                                        Tests.teacher_id == current_user.id).first() is not None:
             return render_template('add_test.html', form=form,
                                    message="Вы ранее создавали группу с таким именем")
+        date, time = form.date.data, form.time.data
+        dt = datetime.datetime.combine(date, time)
+        # здесь должен производиться вызов создания заданий в ботах
+
         # Создание новой работы
-        task = Tests(
+        test = Tests(
             name=form.name.data,
             about=form.about.data,
-            teacher_id=current_user.id
+            teacher_id=current_user.id,
+            date_and_time=dt
         )
-        db_sess.add(task)
+        db_sess.add(test)
         db_sess.commit()
-
-        path = os.path.join(app.config['UPLOAD_FOLDER'], f'{current_user.id}/{task.test_id}')
+        path = os.path.join(app.config['UPLOAD_FOLDER'], f'{current_user.id}/{test.test_id}')
         os.makedirs(path)
-        with open(os.path.join(path, f'{task.test_id}.json'), mode='wt') as json_file:
+        with open(os.path.join(path, f'{test.test_id}.json'), mode='wt') as json_file:
             json.dump({'groups': [], 'tasks': []}, json_file)
-        return redirect(f'/manage_tests/{task.test_id}/1')
+        return redirect(f'/manage_tests/{test.test_id}/1')
     return render_template('add_test.html', form=form)
 
 
@@ -406,6 +412,8 @@ def edit_test_info(test_id):
             abort(404)
         form.name.data = test.name
         form.about.data = test.about
+        form.date.data = test.date_and_time.date()
+        form.time.data = test.date_and_time.time()
     if form.validate_on_submit():
         if db_sess.query(Tests).filter(Tests.name == form.name.data,
                                        Tests.teacher_id == current_user.id,
@@ -418,6 +426,8 @@ def edit_test_info(test_id):
 
         test.name = form.name.data
         test.about = form.about.data
+        test.date_and_time = datetime.datetime.combine(form.date.data, form.time.data)
+        # здесь тоже надо добавлять работу в чат-бота
         db_sess.add(test)
         db_sess.commit()
         return redirect(f'/manage_tests/{test.test_id}/1')
@@ -437,6 +447,7 @@ def delete_test(test_id):
     db_sess.commit()
 
     path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id))
+    # удаление отложенных сообщений в ботах
     shutil.rmtree(os.path.join(path, str(test_id)))
     return redirect('/manage_tests')
 
@@ -549,7 +560,6 @@ def edit_task(test_id, task_id):
             json.dump(data, jsonfile)
         return redirect(f'/manage_tests/{test_id}/1')
     return render_template('task.html', form=form)
-
 
 
 @app.route('/delete_task/<int:test_id>/<int:task_id>')

@@ -13,6 +13,7 @@ class Tests(SqlAlchemyBase, UserMixin):
     about = sqlalchemy.Column(sqlalchemy.String, nullable=True)
     teacher_id = sqlalchemy.Column(sqlalchemy.Integer,
                                    sqlalchemy.ForeignKey("users.id"))
+    date_and_time = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     teacher = orm.relation('Users')
 
     def __repr__(self):
