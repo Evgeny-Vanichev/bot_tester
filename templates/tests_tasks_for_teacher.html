@@ -1,0 +1,27 @@
+{% extends "tests_for_teacher.html" %}
+
+{% block tasks_or_groups %}
+<a href="/add_task/{{ current_test.test_id }}" class="btn btn-secondary">Добавить задание</a>
+{% for task in tasks %}
+<div class="jumbotron">
+    <h1>{{ task['name'] }}</h1>
+    <hr class="my-4">
+    <p class="lead">{{ task['question'] }}</p>
+    {% set question_id = loop.index %}
+    {% for filename in task['extra_files'] %}
+    {% if filename.split('.')[-1].lower() in ['bmp', 'jpeg', 'jpg', 'png'] %}
+    <img src="/static/user_data/{{ current_user.id }}/{{ current_test.test_id }}/{{ filename }}">
+    {% endif %}
+    <p>
+        <a href="/static/user_data/{{ current_user.id }}/{{ current_test.test_id }}/{{ filename }}" download>
+            {{ filename }}
+        </a>
+        <a href="/delete_material/{{ current_test.test_id }}/{{ question_id }}/{{ filename }}">удалить</a>
+    </p>
+    {% endfor %}
+    <hr class="my-4">
+    <a href="/edit_task/{{ current_test.test_id }}/{{ question_id }}" class="btn btn-warning">Изменить</a>
+    <a href="/delete_task/{{ current_test.test_id }}/{{ question_id }}" class="btn btn-danger">Удалить</a>
+</div>
+{% endfor %}
+{% endblock %}

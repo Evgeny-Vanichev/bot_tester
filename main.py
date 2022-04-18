@@ -1,9 +1,11 @@
 import os
 import json
 import shutil
+import datetime
 
 from flask import Flask, render_template, redirect, request
 from werkzeug.exceptions import abort
+from werkzeug.utils import secure_filename
 
 from data import db_session
 
@@ -18,15 +20,19 @@ from data.tests_and_groups import TestsAndGroups
 from forms.groupForm import GroupForm
 from forms.registerForm import RegisterForm
 from forms.loginForm import LoginForm
+from forms.taskForm import TaskForm
 from forms.testForm import TestForm
 
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
+
+from static.tools.tools import transliterate
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'yandexlyceum_secret_key'
 app.config['PERMANENT_SESSION_LIFETIME'] = __import__("datetime").timedelta(
     days=365
 )
+app.config['UPLOAD_FOLDER'] = os.path.join(os.getcwd(), 'static', 'user_data')
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -69,12 +75,18 @@ def manage_groups(group_id, page_id=1):
             GroupParticipants.group_id == group_id)]
         # Получение объектов Users по Id
         current_people = [(student, student.id in users_ids) for student in get_all_students()]
+
+        prev_page = max(page_id - 1, 1)
+        next_page = min(page_id + 1, (len(current_people) + 4) // 5)
+        # (a + b - 1) // a - округление вверх
+
         return render_template("groups_for_teacher.html",
                                groups=result,
                                current_group=current_group,
                                current_people=current_people,
                                page_id=page_id,
-                               len=len(current_people))
+                               prev_page=prev_page,
+                               next_page=next_page)
 
     db_sess = db_session.create_session()
 
@@ -161,9 +173,19 @@ def delete_group(group_id):
     return redirect('/manage_groups')
 
 
-@app.route('/person_delete/<int:group_id>/<int:student_id>')
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+
+@app.route("/home")
+def home():
+    return redirect("/manage_tests")
+
+
+@app.route('/person_delete/<int:group_id>/<int:page_id>/<int:student_id>')
 @login_required
-def delete_student_from_group(group_id, student_id):
+def delete_student_from_group(group_id, page_id, student_id):
     db_sess = db_session.create_session()
     group = db_sess.query(Groups).filter(Groups.group_id == group_id,
                                          Groups.teacher_id == current_user.id).first()
@@ -177,12 +199,12 @@ def delete_student_from_group(group_id, student_id):
         abort(404)
     db_sess.delete(student)
     db_sess.commit()
-    return redirect(f'/manage_groups/{group_id}')
+    return redirect(f'/manage_groups/{group_id}/{page_id}')
 
 
-@app.route('/person_add/<int:group_id>/<int:student_id>')
+@app.route('/person_add/<int:group_id>/<int:page_id>/<int:student_id>')
 @login_required
-def add_student_to_group(group_id, student_id):
+def add_student_to_group(group_id, page_id, student_id):
     db_sess = db_session.create_session()
     group = db_sess.query(Groups).filter(Groups.group_id == group_id,
                                          Groups.teacher_id == current_user.id).first()
@@ -195,17 +217,7 @@ def add_student_to_group(group_id, student_id):
     )
     db_sess.add(gp)
     db_sess.commit()
-    return redirect(f'/manage_groups/{group_id}')
-
-
-@app.route("/")
-def index():
-    return render_template("index.html")
-
-
-@app.route("/home")
-def home():
-    return redirect("/manage_tests")
+    return redirect(f'/manage_groups/{group_id}/{page_id}')
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -266,8 +278,7 @@ def register():
         db_sess.add(user)
         db_sess.commit()
         if user.type == TEACHER:
-            filepath = os.getcwd()
-            os.makedirs(filepath + f'/user_data/{user.id}')
+            os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], str(user.id)))
         return redirect('/login')
 
     return render_template('register.html', title='Регистрация', form=form)
@@ -290,7 +301,7 @@ def redirect_to_sign(response):
 @app.route('/manage_tests/', defaults={'test_id': -1})
 @app.route('/manage_tests/<int:test_id>')
 @login_required
-def manage_tasks(test_id):
+def manage_tests(test_id=-1):
     if current_user.type == TEACHER:
         db_sess = db_session.create_session()
         # Все работы учителя. Используется для списка в боковой части экрана
@@ -299,7 +310,8 @@ def manage_tasks(test_id):
             return render_template(
                 'tests_for_teacher.html',
                 tests=result,
-                current_test=None
+                current_test=None,
+                mode=1
             )
         # Получение группы, с которой в данный момент работает учитель
         current_test = db_sess.query(Tests).filter(Tests.test_id == test_id).first()
@@ -321,24 +333,34 @@ def manage_tasks(test_id):
     #     res = db_sess.query(Groups).filter(Groups.group_id == i.group_id).first()
     #     print(res)
     #     s.append(res.group_name)
-    # return render_template("groups_for_student.html", groups=s, len=len(s))
+    # return render_template("tests_for_student.html", current_test=, len=len(s))
 
 
 # ДАННЫЙ КОД ПОКА ЧТО НЕ РАБОТАЕТ!!!
-@app.route('/add_task', methods=['GET', 'POST'])
-def add_task():
-    form = TestForm()
+@app.route('/add_task/<int:test_id>', methods=['GET', 'POST'])
+def add_task(test_id):
+    form = TaskForm()
     if form.validate_on_submit():
-        db_sess = db_session.create_session()
-        task = Tests()
-        task.name = form.name.data
-        task.about = form.about.data
-        current_user.tasks.append(task)
-        db_sess.merge(current_user)
-        db_sess.commit()
-        return redirect('/home')
-    return render_template('task.html', title='Добавление вопроса',
-                           form=form)
+        path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id))
+
+        filenames = []
+        for file in form.files.data:
+            if file.filename == '':
+                continue
+            filename = secure_filename(transliterate(file.filename.replace(' ', '_')))
+            file.save(os.path.join(path, filename))
+            filenames.append(filename)
+        task = {
+            "question": form.question.data,
+            "extra_files": filenames
+        }
+        with open(os.path.join(path, f'{test_id}.json'), mode='rt') as json_file:
+            data = json.load(json_file)
+            data['tasks'].append(task)
+        with open(os.path.join(path, f'{test_id}.json'), mode='wt') as json_file:
+            json.dump(data, json_file)
+        return redirect(f'/manage_tests/{test_id}/1')
+    return render_template('task.html', title='Добавление вопроса', form=form)
 
 
 @app.route('/new_test', methods=['GET', 'POST'])
@@ -347,6 +369,8 @@ def add_test():
     if current_user.type != TEACHER:
         abort(401)
     db_sess = db_session.create_session()
+
+    result = db_sess.query(Groups).filter(Groups.teacher_id == current_user.id).all()
 
     form = TestForm()
     if form.validate_on_submit():
@@ -358,18 +382,27 @@ def add_test():
         task = Tests(
             name=form.name.data,
             about=form.about.data,
+            current_time=datetime.datetime.now(),
+            end_time=form.time.data,
             teacher_id=current_user.id
+        )
+
+        task_group = TestsAndGroups(
+            test_id=task.test_id,
+            group_id=form.group_name.data
         )
         db_sess.add(task)
         db_sess.commit()
+        db_sess.add(task_group)
+        db_sess.commit()
 
-        path = os.path.abspath(os.getcwd() + f'/user_data/{current_user.id}/{task.test_id}')
-        os.makedirs(path)
-        with open(path + f'/{task.test_id}.json', mode='wt') as json_file:
-            json.dump({'groups': [], 'tasks': []}, json_file)
-        print(os.getcwd())
-        return redirect(f'/manage_tests/{task.test_id}')
-    return render_template('add_test.html', form=form)
+        # какой-то непонятный код
+        # path = os.path.join(app.config['UPLOAD_FOLDER'], f'{current_user.id}/{task.test_id}')
+        # os.makedirs(path)
+        # with open(os.path.join(path, f'{task.test_id}.json'), mode='wt') as json_file:
+        #     json.dump({'groups': [], 'tasks': []}, json_file)
+        return redirect(f'/manage_tests/{task.test_id}/1')
+    return render_template('add_test.html', form=form, groups=result)
 
 
 @app.route('/edit_test/<int:test_id>', methods=['GET', 'POST'])
@@ -400,7 +433,7 @@ def edit_test_info(test_id):
         test.about = form.about.data
         db_sess.add(test)
         db_sess.commit()
-        return redirect(f'/manage_tests/{test.test_id}')
+        return redirect(f'/manage_tests/{test.test_id}/1')
     return render_template('add_test.html', form=form)
 
 
@@ -416,15 +449,17 @@ def delete_test(test_id):
     db_sess.delete(test)
     db_sess.commit()
 
-    path = os.path.abspath(os.getcwd() + f'/user_data/{current_user.id}')
-    shutil.rmtree(path + f'/{test_id}')
+    path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id))
+    shutil.rmtree(os.path.join(path, str(test_id)))
     return redirect('/manage_tests')
 
 
-@app.route('/view_groups/<int:test_id>')
+@app.route('/manage_tests/<int:test_id>/2')
 @login_required
 def manage_groups_for_test(test_id):
-    with open(f'user_data\\{current_user.id}\\{test_id}\\{test_id}.json', mode='rt') as jsonfile:
+    path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id),
+                        f'{test_id}.json')
+    with open(path, mode='rt') as jsonfile:
         data = json.load(jsonfile)
         groups_ids = data['groups']
     # Надо снова добавить проверку на дурака
@@ -436,51 +471,114 @@ def manage_groups_for_test(test_id):
     return render_template('tests_groups_for_teacher.html',
                            groups=groups,
                            current_test=test,
-                           tests=result)
+                           tests=result,
+                           mode=2)
 
 
 @app.route('/group_add/<int:test_id>/<int:group_id>')
 @login_required
-def add_group_to_Test(test_id, group_id):
-    filename = f'user_data\\{current_user.id}\\{test_id}\\{test_id}.json'
-    with open(filename, mode='rt', encoding='utf-8') as jsonfile:
+def add_group_to_test(test_id, group_id):
+    path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id),
+                        f'{test_id}.json')
+    with open(path, mode='rt', encoding='utf-8') as jsonfile:
         data = json.load(jsonfile)
         if group_id not in data['groups']:
             data['groups'].append(group_id)
-    with open(filename, mode='wt', encoding='utf-8') as jsonfile:
+    with open(path, mode='wt', encoding='utf-8') as jsonfile:
         json.dump(data, jsonfile)
-    return redirect(f'/view_groups/{test_id}')
+    return redirect(f'/manage_tests/{test_id}/2')
 
 
 @app.route("/group_discard/<int:test_id>/<int:group_id>")
 @login_required
 def discard_group_from_test(test_id, group_id):
-    filename = f'user_data\\{current_user.id}\\{test_id}\\{test_id}.json'
-    with open(filename, mode='rt', encoding='utf-8') as jsonfile:
+    path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id),
+                        f'{test_id}.json')
+    with open(path, mode='rt', encoding='utf-8') as jsonfile:
         data = json.load(jsonfile)
         if group_id in data['groups']:
             data['groups'].remove(group_id)
-    with open(filename, mode='wt', encoding='utf-8') as jsonfile:
+    with open(path, mode='wt', encoding='utf-8') as jsonfile:
         json.dump(data, jsonfile)
-    return redirect(f'/view_groups/{test_id}')
+    return redirect(f'/manage_tests/{test_id}/2')
 
 
-@app.route('/view_tasks/<int:test_id>')
+@app.route('/manage_tests/<int:test_id>/1')
 @login_required
 def manage_tasks_for_test(test_id):
-    with open(f'user_data\\{current_user.id}\\{test_id}\\{test_id}.json', mode='rt') as jsonfile:
+    path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id), f'{test_id}.json')
+    with open(path, mode='rt') as jsonfile:
         data = json.load(jsonfile)
-        groups_ids = data['tasks']
+        tasks = data['tasks']
+        groups_ids = data['groups']
     # Надо снова добавить проверку на дурака
     db_sess = db_session.create_session()
-    groups = [(group, group.group_id in groups_ids) for group in db_sess.query(Groups).all()]
-
+    tests = [test for test in db_sess.query(Tests).all()]
     test = db_sess.query(Tests).filter(Tests.test_id == test_id).first()
-    result = db_sess.query(Tests).filter(Tests.teacher_id == current_user.id).all()
+    # result = db_sess.query(Tests).filter(Tests.teacher_id == current_user.id).all()
+
     return render_template('tests_tasks_for_teacher.html',
-                           groups=groups,
+                           tasks=tasks,
                            current_test=test,
-                           tests=result)
+                           tests=tests,
+                           mode=1)
+
+
+@app.route("/delete_material/<int:test_id>/<int:question_id>/<path:filename>")
+@login_required
+def delete_material(test_id, filename, question_id):
+    path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id))
+    with open(os.path.join(path, f'{test_id}.json'), mode='rt', encoding='utf-8') as jsonfile:
+        data = json.load(jsonfile)
+    data['tasks'][question_id - 1]['extra_files'].remove(filename)
+    with open(os.path.join(path, f'{test_id}.json'), mode='wt', encoding='utf-8') as jsonfile:
+        json.dump(data, jsonfile)
+    os.remove(os.path.join(path, filename))
+    return redirect(f'/manage_tests/{test_id}/1')
+
+
+@app.route('/edit_task/<int:test_id>/<int:task_id>', methods=['GET', 'POST'])
+@login_required
+def edit_task(test_id, task_id):
+    if current_user.type != TEACHER:
+        abort(401)
+    form = TaskForm()
+    path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id))
+    with open(os.path.join(path, f'{test_id}.json'), mode='rt', encoding='utf-8') as jsonfile:
+        data = json.load(jsonfile)
+
+    if request.method == 'GET':
+        form.question.data = data['tasks'][task_id - 1]['question']
+
+    if form.validate_on_submit():
+        data['tasks'][task_id - 1]['question'] = form.question.data
+        filenames = []
+        for file in form.files.data:
+            filename = secure_filename(transliterate(file.filename.replace(' ', '_')))
+            file.save(os.path.join(path, filename))
+            filenames.append(filename)
+        data['tasks'][task_id - 1]['extra_files'].extend(filenames)
+        with open(os.path.join(path, f'{test_id}.json'), mode='wt', encoding='utf-8') as jsonfile:
+            json.dump(data, jsonfile)
+        return redirect(f'/manage_tests/{test_id}/1')
+    return render_template('task.html', form=form)
+
+
+
+@app.route('/delete_task/<int:test_id>/<int:task_id>')
+@login_required
+def delete_task(test_id, task_id):
+    if current_user.type != TEACHER:
+        abort(401)
+    path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id))
+    with open(os.path.join(path, f'{test_id}.json'), mode='rt', encoding='utf-8') as jsonfile:
+        data = json.load(jsonfile)
+    for file in data['tasks'][task_id - 1]['extra_files']:
+        os.remove(os.path.join(path, file))
+    del data['tasks'][task_id - 1]
+    with open(os.path.join(path, f'{test_id}.json'), mode='wt', encoding='utf-8') as jsonfile:
+        json.dump(data, jsonfile)
+    return redirect(f'/manage_tests/{test_id}/1')
 
 
 if __name__ == '__main__':

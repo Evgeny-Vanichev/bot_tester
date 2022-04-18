@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Изменить информацию о работе</h1>
+<form action="" method="post" enctype="multipart/form-data">
+    {{ form.hidden_tag() }}
+
+    <p>
+        {{ form.question.label }}<br>
+        {{ form.question(class="form-control", rows="4") }}<br>
+        {% for error in form.question.errors %}
+    <div class="alert alert-danger" role="alert">
+        {{ error }}
+    </div>
+    {% endfor %}
+    </p>
+
+    <p>
+        {{ form.files.label }}<br>
+        {{ form.files() }}<br>
+        {% for error in form.files.errors %}
+            <div class="alert alert-danger" role="alert">
+        {{ error }}
+    </div>
+    {% endfor %}
+    </p>
+
+    <p>{{ form.submit(type="submit", class="btn btn-primary") }}</p>
+    {{message}}
+</form>
+{% endblock %}

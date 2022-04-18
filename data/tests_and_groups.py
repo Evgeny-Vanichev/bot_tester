@@ -8,11 +8,11 @@ class TestsAndGroups(SqlAlchemyBase, UserMixin):
     __tablename__ = 'tasks_and_groups'
 
     id = sqlalchemy.Column(sqlalchemy.Integer,
-                                primary_key=True, autoincrement=True)
+                           primary_key=True, autoincrement=True)
     test_id = sqlalchemy.Column(sqlalchemy.Integer,
-                                   sqlalchemy.ForeignKey("tests.test_id"))
+                                sqlalchemy.ForeignKey("tasks.test_id"))
     group_id = sqlalchemy.Column(sqlalchemy.Integer,
-                                sqlalchemy.ForeignKey("groups.group_id"))
+                                 sqlalchemy.ForeignKey("groups.group_id"))
     test = orm.relation('Tests')
     group = orm.relation('Groups')
 

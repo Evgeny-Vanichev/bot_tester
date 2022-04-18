@@ -5,13 +5,8 @@
     <h1 class="display-3">Здравствуйте, {{ current_user.name }}!</h1>
     {% if current_test == None %}
     <h2>Текущая работа не выбрана</h2>
-    <hr class="my-3">
-    <a href="/new_test" class="btn btn-secondary">Создать работу</a>
     {% else %}
     <h4>Текущая работа - {{ current_test.name }}</h4>
-    <hr class="my-3">
-    <a href="/edit_test/{{ current_test.test_id }}" class="btn btn-secondary">Переименовать работу</a>
-    <a href="/delete_test/{{ current_test.test_id }}" class="btn btn-danger">Удалить работу</a>
     <hr class="my-3">
     <a href="/manage_tests/{{ current_test.test_id }}/1" class="btn btn-secondary">Просмотр заданий</a>
     <a href="/manage_tests/{{ current_test.test_id }}/2" class="btn btn-secondary">Просмотр групп</a>
