@@ -455,13 +455,9 @@ def delete_test(test_id):
 @app.route('/manage_tests/<int:test_id>/2')
 @login_required
 def manage_groups_for_test(test_id):
-    path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id),
-                        f'{test_id}.json')
-    with open(path, mode='rt') as jsonfile:
-        data = json.load(jsonfile)
-        groups_ids = data['groups']
     # Надо снова добавить проверку на дурака
     db_sess = db_session.create_session()
+    groups_ids = [x.group_id for x in db_sess.query(TestsAndGroups).filter(TestsAndGroups.test_id == test_id).all()]
     groups = [(group, group.group_id in groups_ids) for group in db_sess.query(Groups).all()]
 
     test = db_sess.query(Tests).filter(Tests.test_id == test_id).first()
@@ -476,28 +472,28 @@ def manage_groups_for_test(test_id):
 @app.route('/group_add/<int:test_id>/<int:group_id>')
 @login_required
 def add_group_to_test(test_id, group_id):
-    path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id),
-                        f'{test_id}.json')
-    with open(path, mode='rt', encoding='utf-8') as jsonfile:
-        data = json.load(jsonfile)
-        if group_id not in data['groups']:
-            data['groups'].append(group_id)
-    with open(path, mode='wt', encoding='utf-8') as jsonfile:
-        json.dump(data, jsonfile)
+    db_sess = db_session.create_session()
+    group_by_task = TestsAndGroups(
+        test_id=test_id,
+        group_id=group_id
+    )
+    db_sess.add(group_by_task)
+    db_sess.commit()
     return redirect(f'/manage_tests/{test_id}/2')
 
 
 @app.route("/group_discard/<int:test_id>/<int:group_id>")
 @login_required
 def discard_group_from_test(test_id, group_id):
-    path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id),
-                        f'{test_id}.json')
-    with open(path, mode='rt', encoding='utf-8') as jsonfile:
-        data = json.load(jsonfile)
-        if group_id in data['groups']:
-            data['groups'].remove(group_id)
-    with open(path, mode='wt', encoding='utf-8') as jsonfile:
-        json.dump(data, jsonfile)
+    db_sess = db_session.create_session()
+    group_by_task = db_sess.query(TestsAndGroups).filter(
+        TestsAndGroups.test_id == test_id,
+        TestsAndGroups.group_id == group_id
+    ).first()
+    if not group_by_task:
+        abort(404)
+    db_sess.delete(group_by_task)
+    db_sess.commit()
     return redirect(f'/manage_tests/{test_id}/2')
 
 
