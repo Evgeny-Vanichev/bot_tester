@@ -4,7 +4,7 @@ from itertools import product
 from static.tools.tools import transliterate
 
 
-def register_user(name, surname, contact_type='vk', contact_link='vk.com'):
+def register_user(name, surname, contact_type='vk', contact_link='406386837'):
     db_sess = db_session.create_session()
     n3 = transliterate(name[:4])
     s3 = transliterate(surname[:4])

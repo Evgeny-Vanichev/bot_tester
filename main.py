@@ -1,7 +1,9 @@
 import datetime
 import os
 import json
+import random
 import shutil
+import vk_api
 
 from flask import Flask, render_template, redirect, request
 from werkzeug.exceptions import abort
@@ -574,5 +576,49 @@ def delete_task(test_id, task_id):
     return redirect(f'/manage_tests/{test_id}/1')
 
 
+def create_message_text(student: Users, test: Tests) -> str:
+    return f'''
+Здравствуйте {student}
+Ваша работа {test.name}
+({test.about})
+от учителя {db_session.create_session().query(Users).filter(Users.id == test.teacher_id)}
+началась
+окончание работы - неизвестно'''
+
+
+def start_test(student: Users, test: Tests):
+    # print(f'message to {student} is sent')
+    vk_session = vk_api.VkApi(token=TOKEN)
+    vk = vk_session.get_api()
+
+    vk.messages.send(user_id=int(student.contact_link),
+                     message=f"тест начался",
+                     random_id=random.randint(0, 2 ** 64))
+
+
+@app.route('/check_db')
+def check_db():
+    dt = datetime.datetime.now()
+    td = datetime.timedelta(minutes=15)
+    db_sess = db_session.create_session()
+    for test in db_sess.query(Tests).filter(
+            Tests.date_and_time >= dt,
+            Tests.date_and_time <= dt + td
+    ).all():
+        test_id = test.test_id
+        for group in db_sess.query(TestsAndGroups).filter(TestsAndGroups.test_id == test_id).all():
+            for student_id in db_sess.query(GroupParticipants.student_id).filter(
+                    GroupParticipants.group_id == group.group_id).all():
+                student = db_sess.query(Users).filter(Users.id == student_id[0]).first()
+                start_test(student, test)
+    for test in db_sess.query(Tests).filter(
+            Tests.date_and_time < dt
+    ):
+        db_sess.delete(test)
+    db_sess.commit()
+    return 'ok'
+
+
 if __name__ == '__main__':
+    TOKEN = "0b5f2faf850401db633f8ef48e3c1490e18590b16b69ee76520712ca09a7265afa06ed3149fe846109671"
     main()
