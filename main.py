@@ -323,17 +323,22 @@ def manage_tests(test_id=-1):
 
     # код раскомментить после того, как добавится id студента в бд tasks + не трогать даже после этого, так как я недописала правильно его
     # как раз из-за нехватки id :)
-    # db_sess = db_session.create_session()
-    #
-    # # ищем, в каких группах состоит студент
-    # s = []
-    # result = db_sess.query(GroupParticipants).filter(GroupParticipants.student_id == current_user.id).all()
-    # print(result)
-    # for i in result:
-    #     res = db_sess.query(Groups).filter(Groups.group_id == i.group_id).first()
-    #     print(res)
-    #     s.append(res.group_name)
-    # return render_template("tests_for_student.html", current_test=, len=len(s))
+    db_sess = db_session.create_session()
+
+    # ищем, в каких группах состоит студент
+    s = {}
+    groups = db_sess.query(GroupParticipants).filter(GroupParticipants.student_id == current_user.id).all()
+    for i in groups:
+        res = db_sess.query(Groups).filter(Groups.group_id == i.group_id).first().group_name
+        tests = db_sess.query(TestsAndGroups).filter(TestsAndGroups.group_id == i.group_id).all()
+        for test in tests:
+            res1 = db_sess.query(Tests).filter(Tests.test_id == test.test_id).first()
+            print(res1)
+            if res not in s:
+                s[res] = []
+            s[res].append(res1)
+    test = db_sess.query(Tests).filter(Tests.test_id == test_id).first()
+    return render_template("tests_for_student.html", groups=s, current_test=test)
 
 
 # ДАННЫЙ КОД ПОКА ЧТО НЕ РАБОТАЕТ!!!
@@ -383,24 +388,19 @@ def add_test():
             name=form.name.data,
             about=form.about.data,
             current_time=datetime.datetime.now(),
-            end_time=form.time.data,
+            end_time=datetime.datetime(form.time.data.year, form.time.data.month,
+                                       form.time.data.day, hour=23, minute=59, second=59),
             teacher_id=current_user.id
         )
 
-        task_group = TestsAndGroups(
-            test_id=task.test_id,
-            group_id=form.group_name.data
-        )
         db_sess.add(task)
-        db_sess.commit()
-        db_sess.add(task_group)
         db_sess.commit()
 
         # какой-то непонятный код
-        # path = os.path.join(app.config['UPLOAD_FOLDER'], f'{current_user.id}/{task.test_id}')
-        # os.makedirs(path)
-        # with open(os.path.join(path, f'{task.test_id}.json'), mode='wt') as json_file:
-        #     json.dump({'groups': [], 'tasks': []}, json_file)
+        path = os.path.join(app.config['UPLOAD_FOLDER'], f'{current_user.id}/{task.test_id}')
+        os.makedirs(path)
+        with open(os.path.join(path, f'{task.test_id}.json'), mode='wt') as json_file:
+            json.dump({'groups': [], 'tasks': []}, json_file)
         return redirect(f'/manage_tests/{task.test_id}/1')
     return render_template('add_test.html', form=form, groups=result)
 
@@ -478,6 +478,14 @@ def manage_groups_for_test(test_id):
 @app.route('/group_add/<int:test_id>/<int:group_id>')
 @login_required
 def add_group_to_test(test_id, group_id):
+
+    db_sess = db_session.create_session()
+    test_and_group = TestsAndGroups()
+    test_and_group.test_id = test_id
+    test_and_group.group_id = group_id
+    db_sess.add(test_and_group)
+    db_sess.commit()
+
     path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id),
                         f'{test_id}.json')
     with open(path, mode='rt', encoding='utf-8') as jsonfile:

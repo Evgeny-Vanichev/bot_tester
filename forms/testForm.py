@@ -7,6 +7,5 @@ class TestForm(FlaskForm):
     name = StringField("Название", validators=[DataRequired()])
     about = StringField("Описание работы", validators=[DataRequired()])
     time = DateField("Дедлайн")
-    group_name = StringField("ID группы", validators=[DataRequired()])
 
     submit = SubmitField('Добавить работу')

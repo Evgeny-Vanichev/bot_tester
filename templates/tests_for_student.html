@@ -14,8 +14,16 @@
 </div>
 
 {% block tasks_or_groups %}
-{% endblock %}
 
+{% for group, test in groups.items() %}
+<div class="container">
+    {{ group }} <br>
+    {{ test.name }} <br>
+    {{ test.about }} <br>
+</div>
+{% endfor %}
+
+{% endblock %}
 {% endblock %}
 
 
@@ -25,7 +33,7 @@
         <li class="list-group-item">
             <a href="/manage_tests"><h5>Управление<br>работами (главная)</h5></a>
             <ul class="list-group">
-                {% for test in tests %}
+                {% for test in groups.values() %}
                 {% if test.test_id == current_test.test_id %}
                 <li class="list-group-item active">
                     <div>

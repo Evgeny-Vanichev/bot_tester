@@ -35,23 +35,6 @@
     {% endfor %}
     </p>
 
-    <p>
-        Выбрать группу<br>
-        {% for group in groups %}
-        <ul>{{ group.group_name }}, {{ group.group_id }}</ul>
-    {% endfor %}
-    </p>
-
-    <p>
-        {{ form.group_name.label }}<br>
-        {{ form.group_name(class="form-control", type="name") }}<br>
-        {% for error in form.group_name.errors %}
-    <div class="alert alert-danger" role="alert">
-        {{ error }}
-    </div>
-    {% endfor %}
-    </p>
-
     <p>{{ form.submit(type="submit", class="btn btn-primary") }}</p>
     {{message}}
 </form>
