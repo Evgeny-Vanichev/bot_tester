@@ -92,7 +92,6 @@ def manage_groups(group_id, page_id=1):
                                next_page=next_page)
 
     db_sess = db_session.create_session()
-
     # ищем, в каких группах состоит студент
     s = []
     result = db_sess.query(GroupParticipants).filter(GroupParticipants.student_id == current_user.id).all()
@@ -709,7 +708,7 @@ def get_student_test_by_vk_id(link):
     db_sess = db_session.create_session()
     # ученик по профилю вк
     student = db_sess.query(Users).filter(
-        Users.contact_link == str(link)).first()
+        Users.contact_link == str(link), Users.type == STUDENT).first()
     # id группы по id ученика
     group_participants = db_sess.query(GroupParticipants).filter(
         GroupParticipants.student_id == student.id).first()
