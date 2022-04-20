@@ -3,7 +3,6 @@ import os
 import json
 import random
 import shutil
-from pprint import pprint
 
 import requests
 import vk_api
