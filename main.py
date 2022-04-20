@@ -3,6 +3,7 @@ import os
 import json
 import random
 import shutil
+from pprint import pprint
 
 import requests
 import vk_api
@@ -530,12 +531,45 @@ def manage_tasks_for_test(test_id):
     tests = [test for test in db_sess.query(Tests).all()]
     test = db_sess.query(Tests).filter(Tests.test_id == test_id).first()
     # result = db_sess.query(Tests).filter(Tests.teacher_id == current_user.id).all()
-
     return render_template('tests_tasks_for_teacher.html',
                            tasks=tasks,
                            current_test=test,
                            tests=tests,
                            mode=1)
+
+
+@app.route('/manage_tests/<int:test_id>/3')
+@login_required
+def manage_students_answers(test_id):
+    db_sess = db_session.create_session()
+    test = db_sess.query(Tests).filter(Tests.test_id == test_id).first()
+    groups_ids = [x.group_id for x in db_sess.query(TestsAndGroups).filter(TestsAndGroups.test_id == test_id).all()]
+    students_ids = [x.student_id for x in
+                    db_sess.query(GroupParticipants).filter(GroupParticipants.group_id.in_(groups_ids)).all()]
+    students = db_sess.query(Users).filter(Users.id.in_(students_ids)).all()
+    return render_template('tests_students_for_teacher.html',
+                           students=students,
+                           current_test=test,
+                           current_student=None)
+
+
+@app.route('/manage_tests/<int:test_id>/3/<int:student_id>')
+@login_required
+def check_student_answers(test_id, student_id):
+    db_sess = db_session.create_session()
+    test = db_sess.query(Tests).filter(Tests.test_id == test_id).first()
+    groups_ids = [x.group_id for x in db_sess.query(TestsAndGroups).filter(TestsAndGroups.test_id == test_id).all()]
+    students_ids = [x.student_id for x in
+                    db_sess.query(GroupParticipants).filter(GroupParticipants.group_id.in_(groups_ids)).all()]
+    students = db_sess.query(Users).filter(Users.id.in_(students_ids)).all()
+    current_student = db_sess.query(Users).filter(Users.id == students)
+    with open(os.path.join(app.config['UPLOAD_FOLDER'], str(student_id), f'{test_id}.json'), mode='rt') as jsonfile:
+        data = json.load(jsonfile)['answers']
+    return render_template('tests_students_for_teacher.html',
+                           current_student=current_student,
+                           students=students,
+                           current_test=test,
+                           answers=data)
 
 
 @app.route("/delete_material/<int:test_id>/<int:question_id>/<path:filename>")
@@ -732,7 +766,7 @@ def vk_bot():
         return '047fa060'
     elif event['type'] == 'message_new':
         print(event['object']['message'])
-        if event['object']['message']['payload'] == "{\"send\":\"1\"}":
+        if event['object']['message'].get('payload', '') == "{\"send\":\"1\"}":
             vk_session = vk_api.VkApi(token=TOKEN)
             vk = vk_session.get_api()
             vk.messages.send(
@@ -766,26 +800,28 @@ def vk_bot():
             return 'OK'
         else:
             student, test = get_student_test_by_vk_id(str(event['object']['message']['from_id']))
+            filenames = []
             for attachment in event['object']['message']['attachments']:
                 if attachment['type'] == 'video':
                     event['object']['message']['text'] += '\n' + attachment['video']['player']
                 else:
                     if attachment['type'] == 'photo':
-                        filename = attachment['photo']['title']
+                        filename = 'photo' + str(attachment['photo']['id']) + '.jpg'
                         for size in attachment['photo']['sizes']:
-                            if size['width'] == attachment['photo']['width'] and size['height'] == attachment['photo']['height']:
+                            if size['type'] in 'yz':
                                 url = size['url']
-                    elif attachment['type'] == 'audio':
-                        url = attachment['audio']['url']
-                        filename = attachment['audio']['title']
+                    elif attachment['type'] == 'audio_message':
+                        url = attachment['audio_message']['link_mp3']
+                        filename = 'audio_message' + str(attachment['audio_message']['id']) + '.mp3'
                     elif attachment['type'] == 'doc':
                         url = attachment['doc']['url']
                         filename = attachment['doc']['title']
                     else:
                         continue
+
                     with open(os.path.join(app.config['UPLOAD_FOLDER'], str(student.id), filename), mode='wb') as file:
                         file.write(requests.get(url).content)
-                    break
+                    filenames.append(filename)
             with open(os.path.join(app.config['UPLOAD_FOLDER'], str(student.id), f'{test.test_id}.txt'),
                       mode='rt') as txtfile:
                 task_number = int(txtfile.read().strip('\n'))
@@ -794,7 +830,7 @@ def vk_bot():
                 data = json.load(jsonfile)
             data['answers'][int(task_number) - 1] = {
                 "answer": event['object']['message']["text"],
-                "extra_files": []
+                "extra_files": filenames
             }
             with open(os.path.join(app.config['UPLOAD_FOLDER'], str(student.id), f'{test.test_id}.json'),
                       mode='wt') as jsonfile:

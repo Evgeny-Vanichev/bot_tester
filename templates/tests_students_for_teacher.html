@@ -1,0 +1,57 @@
+{% extends "tests_for_teacher.html" %}
+
+{% block tasks_or_groups %}
+{% if current_student == None %}
+<table class="table table-bordered">
+    <thead>
+    <tr>
+        <th scope="col">
+            Имя
+        </th>
+        <th scope="col">
+            Фамилия
+        </th>
+        <th scope="col" width="60">
+
+        </th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for person in students %}
+    <tr>
+        <td scope="col">
+            {{ person.name }}
+        </td>
+        <td scope="col">
+            {{ person.surname }}
+        </td>
+        <td scope="col">
+            <a href="/manage_tests/{{ current_test.test_id }}/3/{{ person.id }}" class="btn btn-primary">Работа</a>
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<a href="mange_tests/{{ current_test.test_id }}/3" class="btn btn-secondary">На главную</a>
+    {% for answer in answers %}
+<div class="jumbotron">
+    <h1>Вопрос {{ loop.index }}</h1>
+    {% if answer == None %}
+    <h2>Ученик не дал ответа на этот вопрос</h2>
+    {% else %}
+    {% for filename in answer['extra_files'] %}
+    {% if filename.split('.')[-1].lower() in ['bmp', 'jpeg', 'jpg', 'png'] %}
+    <img src="/static/user_data/{{ current_student.id }}/{{ current_test.test_id }}/{{ filename }}">
+    {% endif %}
+    <p>
+        <a href="/static/user_data/{{ current_student.id }}/{{ current_test.test_id }}/{{ filename }}" download>
+            {{ filename }}
+        </a>
+    </p>
+    {% endfor %}
+    {% endif %}
+</div>
+    {% endfor %}
+{% endif %}
+{% endblock %}
