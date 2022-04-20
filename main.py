@@ -2,7 +2,6 @@ import os
 import json
 import random
 import shutil
-from pprint import pprint
 
 import vk_api
 import datetime
@@ -283,8 +282,7 @@ def register():
         user.set_password(form.password.data)
         db_sess.add(user)
         db_sess.commit()
-        if user.type == TEACHER:
-            os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], str(user.id)))
+        os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], str(user.id)))
         return redirect('/login')
 
     return render_template('register.html', title='Регистрация', form=form)
@@ -606,11 +604,22 @@ def create_message_text(student: Users, test: Tests) -> str:
 окончание работы - неизвестно'''
 
 
+def create_message_files(question, number):
+    return f'''
+вопрос № {number}
+текст вопроса: {question['question']}'''
+
+
 def start_test(student: Users, test: Tests):
-    path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test.test_id))
+    path = os.path.join(app.config['UPLOAD_FOLDER'], str(test.teacher_id), str(test.test_id))
     with open(os.path.join(path, f'{test.test_id}.json'), mode='rt') as json_file:
         data = json.load(json_file)
         max_task = len(data['tasks'])
+    with open(os.path.join(app.config['UPLOAD_FOLDER'], str(student.id), f'{test.test_id}.json'),
+              mode='wt') as jsonfile:
+        json.dump({"answers": [None for _ in range(max_task)]}, jsonfile)
+    with open(os.path.join(app.config['UPLOAD_FOLDER'], str(student.id), f'{test.test_id}.txt'), mode='wt') as txtfile:
+        txtfile.write('-1')
     # print(f'message to {student} is sent')
     vk_session = vk_api.VkApi(token=TOKEN)
     vk = vk_session.get_api()
@@ -622,19 +631,13 @@ def start_test(student: Users, test: Tests):
             i += 1
             j = 0
         else:
+            text = str(4 * i + j + 1)
             keyboard1.add_button(
-                str(4 * i + j + 1),
-                color=VkKeyboardColor.SECONDARY
+                text,
+                color=VkKeyboardColor.SECONDARY,
+                payload="{\"task\":\"" + text + "\"}"
             )
             j += 1
-    pprint(json.loads(keyboard1.get_keyboard()))
-    keyboard2 = {
-        "one_time": False,
-        "buttons": [
-            [{"action": {"type": "text", "label": str(i * 5 + j + 1)}} for j in range(5)] for i in
-            range((max_task + 4) // 5)
-        ]
-    }
     vk.messages.send(user_id=int(student.contact_link),
                      message=create_message_text(student, test),
                      random_id=random.randint(0, 2 ** 64),
@@ -645,10 +648,14 @@ def start_test(student: Users, test: Tests):
 def check_db():
     dt_now = datetime.datetime.now()
     db_sess = db_session.create_session()
+    global tests_begun
     for test in db_sess.query(Tests).filter(
             Tests.date_start <= dt_now,
             Tests.end_date >= dt_now).all():
         test_id = test.test_id
+        if test_id in tests_begun:
+            continue
+        tests_begun.add(test_id)
         for group in db_sess.query(TestsAndGroups).filter(TestsAndGroups.test_id == test_id).all():
             for student_id in db_sess.query(GroupParticipants.student_id).filter(
                     GroupParticipants.group_id == group.group_id).all():
@@ -663,6 +670,88 @@ def check_db():
     return 'ok'
 
 
+def get_student_test_by_vk_id(link):
+    # просит сменить задание
+    db_sess = db_session.create_session()
+    # ученик по профилю вк
+    student = db_sess.query(Users).filter(
+        Users.contact_link == str(link)).first()
+    # id группы по id ученика
+    group_participants = db_sess.query(GroupParticipants).filter(
+        GroupParticipants.student_id == student.id).first()
+    test_and_group = db_sess.query(TestsAndGroups).filter(
+        TestsAndGroups.group_id == group_participants.group_id).first()
+    test = db_sess.query(Tests).filter(Tests.test_id == test_and_group.test_id).first()
+    return student, test
+
+
+@app.route('/vk_bot', methods=['GET', 'POST'])
+def vk_bot():
+    event = request.json
+    if event['type'] == 'confirmation':
+        return '047fa060'
+    elif event['type'] == 'message_new':
+        task_number = json.loads(event['object']['message'].get('payload', '{}')).get('task', None)
+        if task_number is not None:
+            task_number = int(task_number)
+            student, test = get_student_test_by_vk_id(str(event['object']['message']['from_id']))
+            path = os.path.join(app.config['UPLOAD_FOLDER'], str(test.teacher_id), str(test.test_id))
+
+            with open(os.path.join(path, f'{test.test_id}.json'), mode='rt') as json_file:
+                task = json.load(json_file)['tasks'][task_number - 1]
+            with open(os.path.join(app.config['UPLOAD_FOLDER'], str(student.id), f'{test.test_id}.txt'),
+                      mode='wt') as txtfile:
+                txtfile.write(str(task_number))
+            # print(f'message to {student} is sent')
+            vk_session = vk_api.VkApi(token=TOKEN)
+            vk = vk_session.get_api()
+            upload = vk_api.VkUpload(vk_session)
+            att = []
+            for file in task['extra_files']:
+                if file.split('.')[-1] in ['mp3', 'wav', 'ogg']:
+                    temp = upload.audio_message(
+                        audio=os.path.join(path, f'{file}'),
+                        peer_id=event['object']['message']['peer_id'])['audio_message']
+                    att.append(f'doc{temp["owner_id"]}_{temp["id"]}')
+                else:
+                    temp = upload.document_message(
+                        os.path.join(path, f'{file}'),
+                        file,
+                        peer_id=event['object']['message']['peer_id'])['doc']
+                    att.append(f'doc{temp["owner_id"]}_{temp["id"]}')
+            vk.messages.send(
+                message=create_message_files(task, task_number),
+                user_id=event['object']['message']['from_id'],
+                peer_id=event['object']['message']['peer_id'],
+                attachment=att,
+                random_id=random.randint(0, 2 ** 64))
+            return 'ok'
+        else:
+            student, test = get_student_test_by_vk_id(str(event['object']['message']['from_id']))
+            with open(os.path.join(app.config['UPLOAD_FOLDER'], str(student.id), f'{test.test_id}.txt'),
+                      mode='rt') as txtfile:
+                task_number = int(txtfile.read().strip('\n'))
+            with open(os.path.join(app.config['UPLOAD_FOLDER'], str(student.id), f'{test.test_id}.json'),
+                      mode='rt') as jsonfile:
+                data = json.load(jsonfile)
+            data['answers'][int(task_number) - 1] = {
+                "answer": event['object']['message']["text"],
+                "extra_files": []
+            }
+            with open(os.path.join(app.config['UPLOAD_FOLDER'], str(student.id), f'{test.test_id}.json'),
+                      mode='wt') as jsonfile:
+                json.dump(data, jsonfile)
+            vk_session = vk_api.VkApi(token=TOKEN)
+            vk = vk_session.get_api()
+            vk.messages.send(
+                message=f'ответ на задание {task_number} добавлен\nможете переходить к другому вопросу',
+                user_id=event['object']['message']['from_id'],
+                peer_id=event['object']['message']['peer_id'],
+                random_id=random.randint(0, 2 ** 64))
+    return 'ok'
+
+
 if __name__ == '__main__':
+    tests_begun = set()
     TOKEN = "0b5f2faf850401db633f8ef48e3c1490e18590b16b69ee76520712ca09a7265afa06ed3149fe846109671"
     main()

@@ -1,3 +1,5 @@
+import os
+
 from data import db_session
 from data.users import Users
 from itertools import product
@@ -17,14 +19,16 @@ def register_user(name, surname, contact_type='vk', contact_link='406386837'):
         contact_type=contact_type,
         contact_link=contact_link
     )
-    print(name, surname, "успешно зарегистрирован")
     user.set_password(f'{n3}${s3}2')
     db_sess.add(user)
     db_sess.commit()
+    os.mkdir(
+        os.path.join(os.getcwd(), 'static', 'user_data', str(user.id))
+    )
+    print(name, surname, "успешно зарегистрирован")
 
 
 db_session.global_init("db/users_database.db")
-
 students_names = [
     'Василий',
     'Иван',
@@ -41,3 +45,15 @@ students_surnames = [
 ]
 for name, surname in product(students_names, students_surnames):
     register_user(name, surname)
+user = Users(
+    name="Евгений",
+    surname="Ваничев",
+    email="mail@mail.com",
+    type=1,
+    contact_type="vk",
+    contact_link="vk.com"
+)
+user.set_password('3may2018')
+db_sess = db_session.create_session()
+db_sess.add(user)
+db_sess.commit()
