@@ -25,18 +25,18 @@
     {% endfor %}
     </p>
     <p>
-        {{ form.date.label }}<br>
-        {{form.date() }}<br>
-        {% for error in form.date.errors %}
+        {{ form.date_start.label }}<br>
+        {{form.date_start() }}<br>
+        {% for error in form.date_start.errors %}
         <div class="alert alert-danger" role="alert">
             {{ error }}
         </div>
         {% endfor %}
     </p>
     <p>
-        {{ form.time.label }}<br>
-        {{form.time(max="24") }}<br>
-        {% for error in form.time.errors %}
+        {{ form.time_start.label }}<br>
+        {{form.time_start(max="24") }}<br>
+        {% for error in form.time_start.errors %}
         <div class="alert alert-danger" role="alert">
             {{ error }}
         </div>
@@ -44,13 +44,22 @@
     </p>
 
     <p>
-        {{ form.time.label }}<br>
-        {{ form.time(class="form-control", type="date") }}<br>
-        {% for error in form.time.errors %}
-    <div class="alert alert-danger" role="alert">
-        {{ error }}
-    </div>
-    {% endfor %}
+        {{ form.date_end.label }}<br>
+        {{form.date_end() }}<br>
+        {% for error in form.date_end.errors %}
+        <div class="alert alert-danger" role="alert">
+            {{ error }}
+        </div>
+        {% endfor %}
+    </p>
+    <p>
+        {{ form.time_end.label }}<br>
+        {{form.time_end(max="24") }}<br>
+        {% for error in form.time_end.errors %}
+        <div class="alert alert-danger" role="alert">
+            {{ error }}
+        </div>
+        {% endfor %}
     </p>
 
     <p>{{ form.submit(type="submit", class="btn btn-primary") }}</p>

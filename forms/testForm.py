@@ -9,6 +9,6 @@ class TestForm(FlaskForm):
     date_start = DateField("Дата работы", validators=[DataRequired()])
     time_start = TimeField("Время работы", validators=[DataRequired()])
 
-    date_start = DateField("Дата окончания работы", validators=[DataRequired()])
-    time_start = TimeField("Время окончания работы", validators=[DataRequired()])
+    date_end = DateField("Дата окончания работы", validators=[DataRequired()])
+    time_end = TimeField("Время окончания работы", validators=[DataRequired()])
     submit = SubmitField('Добавить работу')

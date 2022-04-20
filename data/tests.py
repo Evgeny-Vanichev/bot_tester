@@ -11,11 +11,10 @@ class Tests(SqlAlchemyBase, UserMixin):
                                 primary_key=True, autoincrement=True)
     name = sqlalchemy.Column(sqlalchemy.String, nullable=True)
     about = sqlalchemy.Column(sqlalchemy.String, nullable=True)
-    current_time = sqlalchemy.Column(sqlalchemy.DateTime)
-    end_time = sqlalchemy.Column(sqlalchemy.DateTime)
     teacher_id = sqlalchemy.Column(sqlalchemy.Integer,
                                    sqlalchemy.ForeignKey("users.id"))
-    date_and_time = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
+    date_start = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
+    end_date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     teacher = orm.relation('Users')
 
     def __repr__(self):

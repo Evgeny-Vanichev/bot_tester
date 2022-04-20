@@ -2,12 +2,16 @@ import os
 import json
 import random
 import shutil
+from pprint import pprint
+
 import vk_api
 import datetime
 
 from flask import Flask, render_template, redirect, request
 from werkzeug.exceptions import abort
 from werkzeug.utils import secure_filename
+
+from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 
 from data import db_session
 
@@ -323,7 +327,8 @@ def manage_tests(test_id=-1):
                                tests=result,
                                current_test=current_test)
 
-    # код раскомментить после того, как добавится id студента в бд tasks + не трогать даже после этого, так как я недописала правильно его
+    # код раскомментить после того, как добавится id студента в бд tasks +
+    # не трогать даже после этого, так как я недописала правильно его
     # как раз из-за нехватки id :)
     db_sess = db_session.create_session()
 
@@ -396,18 +401,18 @@ def add_test():
             name=form.name.data,
             about=form.about.data,
             teacher_id=current_user.id,
-            date_and_time=dt,
-            end_date=dt
+            date_start=dt_s,
+            end_date=dt_e
         )
         db_sess.add(test)
         db_sess.commit()
 
         # какой-то непонятный код
-        path = os.path.join(app.config['UPLOAD_FOLDER'], f'{current_user.id}/{task.test_id}')
+        path = os.path.join(app.config['UPLOAD_FOLDER'], f'{current_user.id}/{test.test_id}')
         os.makedirs(path)
-        with open(os.path.join(path, f'{task.test_id}.json'), mode='wt') as json_file:
+        with open(os.path.join(path, f'{test.test_id}.json'), mode='wt') as json_file:
             json.dump({'groups': [], 'tasks': []}, json_file)
-        return redirect(f'/manage_tests/{task.test_id}/1')
+        return redirect(f'/manage_tests/{test.test_id}/1')
     return render_template('add_test.html', form=form, groups=result)
 
 
@@ -425,8 +430,8 @@ def edit_test_info(test_id):
             abort(404)
         form.name.data = test.name
         form.about.data = test.about
-        form.date_start.data = test.date_and_time.date()
-        form.time_start.data = test.date_and_time.time()
+        form.date_start.data = test.date_start.date()
+        form.time_start.data = test.date_start.time()
         form.date_end.data = test.end_date.date()
         form.time_end.data = test.end_date.time()
     if form.validate_on_submit():
@@ -441,7 +446,8 @@ def edit_test_info(test_id):
 
         test.name = form.name.data
         test.about = form.about.data
-        test.date_and_time = datetime.datetime.combine(form.date.data, form.time.data)
+        test.date_start = datetime.datetime.combine(form.date_start.data, form.time_start.data)
+        test.end_date = datetime.datetime.combine(form.date_end.data, form.time_end.data)
         # здесь тоже надо добавлять работу в чат-бота
         db_sess.add(test)
         db_sess.commit()
@@ -562,6 +568,8 @@ def edit_task(test_id, task_id):
         data['tasks'][task_id - 1]['question'] = form.question.data
         filenames = []
         for file in form.files.data:
+            if file.filename == '':
+                continue
             filename = secure_filename(transliterate(file.filename.replace(' ', '_')))
             file.save(os.path.join(path, filename))
             filenames.append(filename)
@@ -593,41 +601,65 @@ def create_message_text(student: Users, test: Tests) -> str:
 Здравствуйте {student}
 Ваша работа {test.name}
 ({test.about})
-от учителя {db_session.create_session().query(Users).filter(Users.id == test.teacher_id)}
+от учителя {db_session.create_session().query(Users).filter(Users.id == test.teacher_id).first()}
 началась
 окончание работы - неизвестно'''
 
 
 def start_test(student: Users, test: Tests):
+    path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test.test_id))
+    with open(os.path.join(path, f'{test.test_id}.json'), mode='rt') as json_file:
+        data = json.load(json_file)
+        max_task = len(data['tasks'])
     # print(f'message to {student} is sent')
     vk_session = vk_api.VkApi(token=TOKEN)
     vk = vk_session.get_api()
-
+    keyboard1 = VkKeyboard(one_time=False)
+    i = j = 0
+    while 4 * i + j < max_task:
+        if j == 4:
+            keyboard1.add_line()
+            i += 1
+            j = 0
+        else:
+            keyboard1.add_button(
+                str(4 * i + j + 1),
+                color=VkKeyboardColor.SECONDARY
+            )
+            j += 1
+    pprint(json.loads(keyboard1.get_keyboard()))
+    keyboard2 = {
+        "one_time": False,
+        "buttons": [
+            [{"action": {"type": "text", "label": str(i * 5 + j + 1)}} for j in range(5)] for i in
+            range((max_task + 4) // 5)
+        ]
+    }
     vk.messages.send(user_id=int(student.contact_link),
-                     message=f"тест начался",
-                     random_id=random.randint(0, 2 ** 64))
+                     message=create_message_text(student, test),
+                     random_id=random.randint(0, 2 ** 64),
+                     keyboard=keyboard1.get_keyboard())
 
 
 @app.route('/check_db')
 def check_db():
-    dt = datetime.datetime.now()
-    td = datetime.timedelta(minutes=15)
+    dt_now = datetime.datetime.now()
     db_sess = db_session.create_session()
     for test in db_sess.query(Tests).filter(
-            Tests.date_and_time >= dt,
-            Tests.date_and_time <= dt + td
-    ).all():
+            Tests.date_start <= dt_now,
+            Tests.end_date >= dt_now).all():
         test_id = test.test_id
         for group in db_sess.query(TestsAndGroups).filter(TestsAndGroups.test_id == test_id).all():
             for student_id in db_sess.query(GroupParticipants.student_id).filter(
                     GroupParticipants.group_id == group.group_id).all():
                 student = db_sess.query(Users).filter(Users.id == student_id[0]).first()
                 start_test(student, test)
-    for test in db_sess.query(Tests).filter(
-            Tests.date_and_time < dt
-    ):
-        db_sess.delete(test)
-    db_sess.commit()
+    # оставим учителю возможность удалять работы
+    # for test in db_sess.query(Tests).filter(
+    #         Tests.end_date < dt_now
+    # ):
+    #     db_sess.delete(test)
+    # db_sess.commit()
     return 'ok'
 
 
