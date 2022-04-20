@@ -557,8 +557,12 @@ def check_student_answers(test_id, student_id):
                     db_sess.query(GroupParticipants).filter(GroupParticipants.group_id.in_(groups_ids)).all()]
     students = db_sess.query(Users).filter(Users.id.in_(students_ids)).all()
     current_student = db_sess.query(Users).filter(Users.id == students)
-    with open(os.path.join(app.config['UPLOAD_FOLDER'], str(student_id), f'{test_id}.json'), mode='rt') as jsonfile:
-        data = json.load(jsonfile)['answers']
+    f_name = os.path.join(app.config['UPLOAD_FOLDER'], str(student_id), f'{test_id}.json')
+    if not os.path.exists(f_name):
+        data = None
+    else:
+        with open(f_name, mode='rt') as jsonfile:
+            data = json.load(jsonfile)['answers']
     return render_template('tests_students_for_teacher.html',
                            current_student=current_student,
                            students=students,
