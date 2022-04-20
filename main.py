@@ -762,9 +762,8 @@ async def f(task, path, peer_id, att):
 def vk_bot():
     event = request.json
     if event['type'] == 'confirmation':
-        return '047fa060'
+        return 'd0c45cf9'
     elif event['type'] == 'message_new':
-        print(event['object']['message'])
         if event['object']['message'].get('payload', '') == "{\"send\":\"1\"}":
             vk_session = vk_api.VkApi(token=TOKEN)
             vk = vk_session.get_api()
