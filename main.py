@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 import json
 import random
@@ -704,6 +705,7 @@ def check_db():
 
 
 def get_student_test_by_vk_id(link):
+    logging.debug('user id: ', link)
     # просит сменить задание
     db_sess = db_session.create_session()
     # ученик по профилю вк
