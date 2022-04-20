@@ -1,3 +1,4 @@
+import asyncio
 import os
 import json
 import random
@@ -688,6 +689,42 @@ def get_student_test_by_vk_id(link):
     return student, test
 
 
+async def upload_audio(filename, peer_id, upload, att):
+    temp = upload.audio_message(
+        audio=filename,
+        peer_id=peer_id
+    )['audio_message']
+    att.append(f'doc{temp["owner_id"]}_{temp["id"]}')
+
+
+async def upload_document(filename, file, peer_id, upload, att):
+    temp = upload.document_message(
+        filename,
+        file,
+        peer_id=peer_id)['doc']
+    att.append(f'doc{temp["owner_id"]}_{temp["id"]}')
+
+
+async def f2(tasks):
+    await asyncio.gather(*tasks)
+
+
+async def f(task, path, peer_id, att):
+    vk_session = vk_api.VkApi(token=TOKEN)
+    upload = vk_api.VkUpload(vk_session)
+    tasks = []
+    for file in task:
+        if file.split('.')[-1] in ['mp3', 'wav', 'ogg']:
+            tasks.append(asyncio.create_task(
+                upload_audio(os.path.join(path, file), peer_id, upload,
+                             att)))
+        else:
+            tasks.append(asyncio.create_task(
+                upload_document(os.path.join(path, file), file, peer_id, upload,
+                                att)))
+    await asyncio.gather(*tasks)
+
+
 @app.route('/vk_bot', methods=['GET', 'POST'])
 def vk_bot():
     event = request.json
@@ -695,6 +732,16 @@ def vk_bot():
         return '047fa060'
     elif event['type'] == 'message_new':
         print(event['object']['message'])
+        if event['object']['message']['payload'] == "{\"send\":\"1\"}":
+            vk_session = vk_api.VkApi(token=TOKEN)
+            vk = vk_session.get_api()
+            vk.messages.send(
+                message=f'работа отправлена',
+                user_id=event['object']['message']['from_id'],
+                peer_id=event['object']['message']['peer_id'],
+                random_id=random.randint(0, 2 ** 64),
+                keyboard='{"buttons":[]}')
+            return 'OK'
         task_number = json.loads(event['object']['message'].get('payload', '{}')).get('task', None)
         if task_number is not None:
             task_number = int(task_number)
@@ -708,20 +755,8 @@ def vk_bot():
                 txtfile.write(str(task_number))
             vk_session = vk_api.VkApi(token=TOKEN)
             vk = vk_session.get_api()
-            upload = vk_api.VkUpload(vk_session)
             att = []
-            for file in task['extra_files']:
-                if file.split('.')[-1] in ['mp3', 'wav', 'ogg']:
-                    temp = upload.audio_message(
-                        audio=os.path.join(path, f'{file}'),
-                        peer_id=event['object']['message']['peer_id'])['audio_message']
-                    att.append(f'doc{temp["owner_id"]}_{temp["id"]}')
-                else:
-                    temp = upload.document_message(
-                        os.path.join(path, f'{file}'),
-                        file,
-                        peer_id=event['object']['message']['peer_id'])['doc']
-                    att.append(f'doc{temp["owner_id"]}_{temp["id"]}')
+            asyncio.run(f(task['extra_files'], path, event['object']['message']['peer_id'], att))
             vk.messages.send(
                 message=create_message_files(task, task_number),
                 user_id=event['object']['message']['from_id'],
@@ -771,6 +806,7 @@ def vk_bot():
                 user_id=event['object']['message']['from_id'],
                 peer_id=event['object']['message']['peer_id'],
                 random_id=random.randint(0, 2 ** 64))
+
     return 'OK'
 
 
