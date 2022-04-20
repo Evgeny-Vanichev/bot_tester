@@ -1,9 +1,9 @@
-import datetime
 import os
 import json
 import random
 import shutil
 import vk_api
+import datetime
 
 from flask import Flask, render_template, redirect, request
 from werkzeug.exceptions import abort
@@ -323,20 +323,24 @@ def manage_tests(test_id=-1):
                                tests=result,
                                current_test=current_test)
 
-    # код раскомментить после того, как добавится id студента в бд tasks
-    # + не трогать даже после этого, так как я недописала правильно его
+    # код раскомментить после того, как добавится id студента в бд tasks + не трогать даже после этого, так как я недописала правильно его
     # как раз из-за нехватки id :)
-    # db_sess = db_session.create_session()
-    # #
-    # # ищем, в каких группах состоит студент
-    # s = []
-    # result = db_sess.query(GroupParticipants).filter(GroupParticipants.student_id == current_user.id).all()
-    # print(result)
-    # for i in result:
-    #     res = db_sess.query(Groups).filter(Groups.group_id == i.group_id).first()
-    #     print(res)
-    #     s.append(res.group_name)
-    # return render_template("groups_for_student.html", groups=s, len=len(s))
+    db_sess = db_session.create_session()
+
+    # ищем, в каких группах состоит студент
+    s = {}
+    groups = db_sess.query(GroupParticipants).filter(GroupParticipants.student_id == current_user.id).all()
+    for i in groups:
+        res = db_sess.query(Groups).filter(Groups.group_id == i.group_id).first().group_name
+        tests = db_sess.query(TestsAndGroups).filter(TestsAndGroups.group_id == i.group_id).all()
+        for test in tests:
+            res1 = db_sess.query(Tests).filter(Tests.test_id == test.test_id).first()
+            print(res1)
+            if res not in s:
+                s[res] = []
+            s[res].append(res1)
+    test = db_sess.query(Tests).filter(Tests.test_id == test_id).first()
+    return render_template("tests_for_student.html", groups=s, current_test=test)
 
 
 # ДАННЫЙ КОД ПОКА ЧТО НЕ РАБОТАЕТ!!!
@@ -373,14 +377,18 @@ def add_test():
         abort(401)
     db_sess = db_session.create_session()
 
+    result = db_sess.query(Groups).filter(Groups.teacher_id == current_user.id).all()
+
     form = TestForm()
     if form.validate_on_submit():
         if db_sess.query(Tests).filter(Tests.name == form.name.data,
                                        Tests.teacher_id == current_user.id).first() is not None:
             return render_template('add_test.html', form=form,
                                    message="Вы ранее создавали группу с таким именем")
-        date, time = form.date.data, form.time.data
-        dt = datetime.datetime.combine(date, time)
+        date_s, time_s = form.date_start.data, form.time_start.data
+        dt_s = datetime.datetime.combine(date_s, time_s)
+        date_e, time_e = form.date_end.data, form.time_end.data
+        dt_e = datetime.datetime.combine(date_e, time_e)
         # здесь должен производиться вызов создания заданий в ботах
 
         # Создание новой работы
@@ -388,16 +396,19 @@ def add_test():
             name=form.name.data,
             about=form.about.data,
             teacher_id=current_user.id,
-            date_and_time=dt
+            date_and_time=dt,
+            end_date=dt
         )
         db_sess.add(test)
         db_sess.commit()
-        path = os.path.join(app.config['UPLOAD_FOLDER'], f'{current_user.id}/{test.test_id}')
+
+        # какой-то непонятный код
+        path = os.path.join(app.config['UPLOAD_FOLDER'], f'{current_user.id}/{task.test_id}')
         os.makedirs(path)
-        with open(os.path.join(path, f'{test.test_id}.json'), mode='wt') as json_file:
+        with open(os.path.join(path, f'{task.test_id}.json'), mode='wt') as json_file:
             json.dump({'groups': [], 'tasks': []}, json_file)
-        return redirect(f'/manage_tests/{test.test_id}/1')
-    return render_template('add_test.html', form=form)
+        return redirect(f'/manage_tests/{task.test_id}/1')
+    return render_template('add_test.html', form=form, groups=result)
 
 
 @app.route('/edit_test/<int:test_id>', methods=['GET', 'POST'])
@@ -414,8 +425,10 @@ def edit_test_info(test_id):
             abort(404)
         form.name.data = test.name
         form.about.data = test.about
-        form.date.data = test.date_and_time.date()
-        form.time.data = test.date_and_time.time()
+        form.date_start.data = test.date_and_time.date()
+        form.time_start.data = test.date_and_time.time()
+        form.date_end.data = test.end_date.date()
+        form.time_end.data = test.end_date.time()
     if form.validate_on_submit():
         if db_sess.query(Tests).filter(Tests.name == form.name.data,
                                        Tests.teacher_id == current_user.id,
@@ -449,7 +462,6 @@ def delete_test(test_id):
     db_sess.commit()
 
     path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id))
-    # удаление отложенных сообщений в ботах
     shutil.rmtree(os.path.join(path, str(test_id)))
     return redirect('/manage_tests')
 

@@ -43,6 +43,16 @@
         {% endfor %}
     </p>
 
+    <p>
+        {{ form.time.label }}<br>
+        {{ form.time(class="form-control", type="date") }}<br>
+        {% for error in form.time.errors %}
+    <div class="alert alert-danger" role="alert">
+        {{ error }}
+    </div>
+    {% endfor %}
+    </p>
+
     <p>{{ form.submit(type="submit", class="btn btn-primary") }}</p>
     {{message}}
 </form>
