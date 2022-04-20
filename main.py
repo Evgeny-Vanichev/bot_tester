@@ -3,6 +3,7 @@ import json
 import random
 import shutil
 
+import requests
 import vk_api
 import datetime
 
@@ -638,6 +639,8 @@ def start_test(student: Users, test: Tests):
                 payload="{\"task\":\"" + text + "\"}"
             )
             j += 1
+    keyboard1.add_line()
+    keyboard1.add_button("Отослать работу", color=VkKeyboardColor.POSITIVE, payload="{\"send\":\"1\"}")
     vk.messages.send(user_id=int(student.contact_link),
                      message=create_message_text(student, test),
                      random_id=random.randint(0, 2 ** 64),
@@ -667,7 +670,7 @@ def check_db():
     # ):
     #     db_sess.delete(test)
     # db_sess.commit()
-    return 'ok'
+    return 'OK'
 
 
 def get_student_test_by_vk_id(link):
@@ -691,6 +694,7 @@ def vk_bot():
     if event['type'] == 'confirmation':
         return '047fa060'
     elif event['type'] == 'message_new':
+        print(event['object']['message'])
         task_number = json.loads(event['object']['message'].get('payload', '{}')).get('task', None)
         if task_number is not None:
             task_number = int(task_number)
@@ -702,7 +706,6 @@ def vk_bot():
             with open(os.path.join(app.config['UPLOAD_FOLDER'], str(student.id), f'{test.test_id}.txt'),
                       mode='wt') as txtfile:
                 txtfile.write(str(task_number))
-            # print(f'message to {student} is sent')
             vk_session = vk_api.VkApi(token=TOKEN)
             vk = vk_session.get_api()
             upload = vk_api.VkUpload(vk_session)
@@ -725,9 +728,29 @@ def vk_bot():
                 peer_id=event['object']['message']['peer_id'],
                 attachment=att,
                 random_id=random.randint(0, 2 ** 64))
-            return 'ok'
+            return 'OK'
         else:
             student, test = get_student_test_by_vk_id(str(event['object']['message']['from_id']))
+            for attachment in event['object']['message']['attachments']:
+                if attachment['type'] == 'video':
+                    event['object']['message']['text'] += '\n' + attachment['video']['player']
+                else:
+                    if attachment['type'] == 'photo':
+                        filename = attachment['photo']['title']
+                        for size in attachment['photo']['sizes']:
+                            if size['width'] == attachment['photo']['width'] and size['height'] == attachment['photo']['height']:
+                                url = size['url']
+                    elif attachment['type'] == 'audio':
+                        url = attachment['audio']['url']
+                        filename = attachment['audio']['title']
+                    elif attachment['type'] == 'doc':
+                        url = attachment['doc']['url']
+                        filename = attachment['doc']['title']
+                    else:
+                        continue
+                    with open(os.path.join(app.config['UPLOAD_FOLDER'], str(student.id), filename), mode='wb') as file:
+                        file.write(requests.get(url).content)
+                    break
             with open(os.path.join(app.config['UPLOAD_FOLDER'], str(student.id), f'{test.test_id}.txt'),
                       mode='rt') as txtfile:
                 task_number = int(txtfile.read().strip('\n'))
@@ -748,7 +771,7 @@ def vk_bot():
                 user_id=event['object']['message']['from_id'],
                 peer_id=event['object']['message']['peer_id'],
                 random_id=random.randint(0, 2 ** 64))
-    return 'ok'
+    return 'OK'
 
 
 if __name__ == '__main__':
