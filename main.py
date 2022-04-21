@@ -695,8 +695,9 @@ def check_db():
         for group in db_sess.query(TestsAndGroups).filter(TestsAndGroups.test_id == test_id).all():
             for student_id in db_sess.query(GroupParticipants.student_id).filter(
                     GroupParticipants.group_id == group.group_id).all():
-                student = db_sess.query(Users).filter(Users.id == student_id[0]).first()
-                start_test(student, test)
+                for student in db_sess.query(Users).filter(Users.id == student_id[0]).all():
+                    start_test(student, test)
+
     # оставим учителю возможность удалять работы
     # for test in db_sess.query(Tests).filter(
     #         Tests.end_date < dt_now
@@ -849,5 +850,13 @@ if __name__ == '__main__':
     # some new
     TOKEN = "0b5f2faf850401db633f8ef48e3c1490e18590b16b69ee76520712ca09a7265afa06ed3149fe846109671"
     port = int(os.environ.get("PORT", 5000))
-    db_session.global_init("users_database.db")
+    try:
+        os.mkdir('static/user_data')
+    except Exception:
+        pass
+    try:
+        os.mkdir('db')
+    except Exception:
+        pass
+    db_session.global_init("db/users_database.db")
     app.run(host='0.0.0.0', port=port)

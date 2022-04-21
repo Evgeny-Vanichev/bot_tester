@@ -34,9 +34,9 @@
 </table>
 {% elif answers == None %}
 <h1>ученик еще не приступал к заданию</h1>
-<a href="mange_tests/{{ current_test.test_id }}/3" class="btn btn-secondary">На главную</a>
+<a href="/manage_tests/{{ current_test.test_id }}/3" class="btn btn-secondary">На главную</a>
 {% else %}
-<a href="mange_tests/{{ current_test.test_id }}/3" class="btn btn-secondary">На главную</a>
+<a href="/manage_tests/{{ current_test.test_id }}/3" class="btn btn-secondary">На главную</a>
     {% for answer in answers %}
 <div class="jumbotron">
     <h1>Вопрос {{ loop.index }}</h1>
