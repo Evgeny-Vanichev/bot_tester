@@ -851,11 +851,11 @@ if __name__ == '__main__':
     TOKEN = "0b5f2faf850401db633f8ef48e3c1490e18590b16b69ee76520712ca09a7265afa06ed3149fe846109671"
     port = int(os.environ.get("PORT", 5000))
     try:
-        os.mkdir('static/user_data')
+        os.mkdir(os.path.join(app.config['UPLOAD_FOLDER'], 'static', 'user_data'))
     except Exception:
         pass
     try:
-        os.mkdir('db')
+        os.mkdir(os.path.join(app.config['UPLOAD_FOLDER'], 'db'))
     except Exception:
         pass
     db_session.global_init("db/users_database.db")
