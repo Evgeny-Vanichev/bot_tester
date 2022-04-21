@@ -854,9 +854,5 @@ if __name__ == '__main__':
         os.mkdir(os.path.join(app.config['UPLOAD_FOLDER'], 'static', 'user_data'))
     except Exception:
         pass
-    try:
-        os.mkdir(os.path.join(app.config['UPLOAD_FOLDER'], 'db'))
-    except Exception:
-        pass
-    db_session.global_init("db/users_database.db")
+    db_session.global_init("users_database.db")
     app.run(host='0.0.0.0', port=port)
