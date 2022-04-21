@@ -850,9 +850,7 @@ if __name__ == '__main__':
     # some new
     TOKEN = "0b5f2faf850401db633f8ef48e3c1490e18590b16b69ee76520712ca09a7265afa06ed3149fe846109671"
     port = int(os.environ.get("PORT", 5000))
-
     try:
-
         os.mkdir(os.path.join(app.config['UPLOAD_FOLDER']))
     except Exception:
         pass
