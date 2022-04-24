@@ -555,7 +555,7 @@ def manage_students_answers(test_id):
 def manage_student_answers(test_id, student_id):
     db_sess = db_session.create_session()
     test = db_sess.query(Tests).filter(Tests.test_id == test_id).first()
-    current_student = db_sess.query(Users).filter(Users.id == student_id)
+    current_student = db_sess.query(Users).filter(Users.id == student_id).first()
     f_name = path_to(str(student_id), f'{test_id}.json')
     if not os.path.exists(f_name):
         data = None
