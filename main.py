@@ -763,27 +763,7 @@ def get_task_number(event):
 
 
 def download_attachments(event, path, filenames):
-    for attachment in event['object']['message']['attachments']:
-        if attachment['type'] == 'video':
-            event['object']['message']['text'] += '\n' + attachment['video']['player']
-        else:
-            if attachment['type'] == 'photo':
-                filename = 'photo' + str(attachment['photo']['id']) + '.jpg'
-                for size in attachment['photo']['sizes']:
-                    if size['type'] in 'yz':
-                        url = size['url']
-            elif attachment['type'] == 'audio_message':
-                url = attachment['audio_message']['link_mp3']
-                filename = 'audio_message' + str(attachment['audio_message']['id']) + '.mp3'
-            elif attachment['type'] == 'doc':
-                url = attachment['doc']['url']
-                filename = attachment['doc']['title']
-            else:
-                continue
-            logging.info(f'file {filename} saved')
-            with open(path_to(path, filename), mode='wb') as file:
-                file.write(requests.get(url).content)
-            filenames.append(filename)
+    return
 
 
 @app.route('/vk_bot', methods=['GET', 'POST'])
@@ -829,7 +809,27 @@ def vk_bot():
             return 'OK'
         else:
             filenames = []
-            download_attachments(event, str(student.id), filenames)
+            for attachment in event['object']['message']['attachments']:
+                if attachment['type'] == 'video':
+                    event['object']['message']['text'] += '\n' + attachment['video']['player']
+                else:
+                    if attachment['type'] == 'photo':
+                        filename = 'photo' + str(attachment['photo']['id']) + '.jpg'
+                        for size in attachment['photo']['sizes']:
+                            if size['type'] in 'yz':
+                                url = size['url']
+                    elif attachment['type'] == 'audio_message':
+                        url = attachment['audio_message']['link_mp3']
+                        filename = 'audio_message' + str(attachment['audio_message']['id']) + '.mp3'
+                    elif attachment['type'] == 'doc':
+                        url = attachment['doc']['url']
+                        filename = attachment['doc']['title']
+                    else:
+                        continue
+                    logging.info(f'file {filename} saved')
+                    with open(path_to(str(student.id), filename), mode='wb') as file:
+                        file.write(requests.get(url).content)
+                    filenames.append(filename)
             if not os.path.exists(path_to(str(student.id), f'{test.test_id}.txt')): # ???
                 with open(path_to(str(student.id), f'{test.test_id}.txt'), mode='rt') as txtfile:
                     txtfile.write('-1')
@@ -867,6 +867,6 @@ if __name__ == '__main__':
         os.mkdir(os.path.join(app.config['UPLOAD_FOLDER']))
     except Exception:
         pass
-    os.remove(os.path.join(os.getcwd(), 'users_database.db'))
+    # os.remove(os.path.join(os.getcwd(), 'users_database.db'))
     db_session.global_init("users_database.db")
     app.run(host='0.0.0.0', port=port)
