@@ -48,6 +48,10 @@ login_manager.init_app(app)
 TEACHER, STUDENT = 1, 2
 
 
+def path_to(*parts):
+    return os.path.join(app.config['UPLOAD_FOLDER'], *parts)
+
+
 @login_manager.user_loader
 def load_user(user_id):
     db_sess = db_session.create_session()
@@ -279,7 +283,7 @@ def register():
         user.set_password(form.password.data)
         db_sess.add(user)
         db_sess.commit()
-        os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], str(user.id)))
+        os.makedirs(path_to(str(user.id)))
         return redirect('/login')
 
     return render_template('register.html', title='Регистрация', form=form)
@@ -343,12 +347,11 @@ def manage_tests(test_id=-1):
     return render_template("tests_for_student.html", groups=s, current_test=test)
 
 
-# ДАННЫЙ КОД ПОКА ЧТО НЕ РАБОТАЕТ!!!
 @app.route('/add_task/<int:test_id>', methods=['GET', 'POST'])
 def add_task(test_id):
     form = TaskForm()
     if form.validate_on_submit():
-        path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id))
+        path = path_to(str(current_user.id), str(test_id))
 
         filenames = []
         for file in form.files.data:
@@ -403,7 +406,7 @@ def add_test():
         db_sess.commit()
 
         # какой-то непонятный код
-        path = os.path.join(app.config['UPLOAD_FOLDER'], f'{current_user.id}/{test.test_id}')
+        path = path_to(f'{current_user.id}/{test.test_id}')
         os.makedirs(path)
         with open(os.path.join(path, f'{test.test_id}.json'), mode='wt') as json_file:
             json.dump({'groups': [], 'tasks': []}, json_file)
@@ -462,7 +465,7 @@ def delete_test(test_id):
     db_sess.delete(test)
     db_sess.commit()
 
-    path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id))
+    path = path_to(str(current_user.id))
     shutil.rmtree(os.path.join(path, str(test_id)))
     return redirect('/manage_tests')
 
@@ -515,7 +518,7 @@ def discard_group_from_test(test_id, group_id):
 @app.route('/manage_tests/<int:test_id>/1')
 @login_required
 def manage_tasks_for_test(test_id):
-    path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id), f'{test_id}.json')
+    path = path_to(str(current_user.id), str(test_id), f'{test_id}.json')
     with open(path, mode='rt') as jsonfile:
         data = json.load(jsonfile)
         tasks = data['tasks']
@@ -549,7 +552,7 @@ def manage_students_answers(test_id):
 
 @app.route('/manage_tests/<int:test_id>/3/<int:student_id>')
 @login_required
-def check_student_answers(test_id, student_id):
+def manage_student_answers(test_id, student_id):
     db_sess = db_session.create_session()
     test = db_sess.query(Tests).filter(Tests.test_id == test_id).first()
     groups_ids = [x.group_id for x in db_sess.query(TestsAndGroups).filter(TestsAndGroups.test_id == test_id).all()]
@@ -557,7 +560,7 @@ def check_student_answers(test_id, student_id):
                     db_sess.query(GroupParticipants).filter(GroupParticipants.group_id.in_(groups_ids)).all()]
     students = db_sess.query(Users).filter(Users.id.in_(students_ids)).all()
     current_student = db_sess.query(Users).filter(Users.id == students)
-    f_name = os.path.join(app.config['UPLOAD_FOLDER'], str(student_id), f'{test_id}.json')
+    f_name = path_to(str(student_id), f'{test_id}.json')
     if not os.path.exists(f_name):
         data = None
     else:
@@ -573,7 +576,7 @@ def check_student_answers(test_id, student_id):
 @app.route("/delete_material/<int:test_id>/<int:question_id>/<path:filename>")
 @login_required
 def delete_material(test_id, filename, question_id):
-    path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id))
+    path = path_to(str(current_user.id), str(test_id))
     with open(os.path.join(path, f'{test_id}.json'), mode='rt', encoding='utf-8') as jsonfile:
         data = json.load(jsonfile)
     data['tasks'][question_id - 1]['extra_files'].remove(filename)
@@ -589,7 +592,7 @@ def edit_task(test_id, task_id):
     if current_user.type != TEACHER:
         abort(401)
     form = TaskForm()
-    path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id))
+    path = path_to(str(current_user.id), str(test_id))
     with open(os.path.join(path, f'{test_id}.json'), mode='rt', encoding='utf-8') as jsonfile:
         data = json.load(jsonfile)
 
@@ -617,7 +620,7 @@ def edit_task(test_id, task_id):
 def delete_task(test_id, task_id):
     if current_user.type != TEACHER:
         abort(401)
-    path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), str(test_id))
+    path = path_to(str(current_user.id), str(test_id))
     with open(os.path.join(path, f'{test_id}.json'), mode='rt', encoding='utf-8') as jsonfile:
         data = json.load(jsonfile)
     for file in data['tasks'][task_id - 1]['extra_files']:
@@ -645,15 +648,16 @@ def create_message_files(question, number):
 
 
 def start_test(student: Users, test: Tests):
-    path = os.path.join(app.config['UPLOAD_FOLDER'], str(test.teacher_id), str(test.test_id))
+    path = path_to(str(test.teacher_id), str(test.test_id))
     with open(os.path.join(path, f'{test.test_id}.json'), mode='rt') as json_file:
         data = json.load(json_file)
         max_task = len(data['tasks'])
-    with open(os.path.join(app.config['UPLOAD_FOLDER'], str(student.id), f'{test.test_id}.json'),
-              mode='wt') as jsonfile:
+    with open(path_to(str(student.id), f'{test.test_id}.json'), mode='wt') as jsonfile:
         json.dump({"answers": [None for _ in range(max_task)]}, jsonfile)
-    with open(os.path.join(app.config['UPLOAD_FOLDER'], str(student.id), f'{test.test_id}.txt'), mode='wt') as txtfile:
+    with open(path_to(str(student.id), f'{test.test_id}.txt'), mode='wt') as txtfile:
         txtfile.write('-1')
+    with open(path_to(str(student.id), 'current_test.txt'), mode='wt') as file:
+        file.write(str(test.test_id))
     # print(f'message to {student} is sent')
     vk_session = vk_api.VkApi(token=TOKEN)
     vk = vk_session.get_api()
@@ -707,19 +711,19 @@ def check_db():
     return 'OK'
 
 
-def get_student_test_by_vk_id(link):
-    # просит сменить задание
+def get_student_by_vk_id(link) -> Users:
     db_sess = db_session.create_session()
     # ученик по профилю вк
     student = db_sess.query(Users).filter(
         Users.contact_link == str(link), Users.type == STUDENT).first()
-    # id группы по id ученика
-    group_participants = db_sess.query(GroupParticipants).filter(
-        GroupParticipants.student_id == student.id).first()
-    test_and_group = db_sess.query(TestsAndGroups).filter(
-        TestsAndGroups.group_id == group_participants.group_id).all()
-    test = db_sess.query(Tests).filter(Tests.test_id == test_and_group.test_id).first()
-    return student, test
+    return student
+
+
+def get_test_by_student(student: Users) -> Tests:
+    with open(path_to(str(student.id), 'current_test.txt')) as file:
+        test_id = int(file.read().strip('\n'))
+    db_sess = db_session.create_session()
+    return db_sess.query(Tests).filter(Tests.test_id == test_id).first()
 
 
 async def upload_audio(filename, peer_id, upload, att):
@@ -738,11 +742,7 @@ async def upload_document(filename, file, peer_id, upload, att):
     att.append(f'doc{temp["owner_id"]}_{temp["id"]}')
 
 
-async def f2(tasks):
-    await asyncio.gather(*tasks)
-
-
-async def f(task, path, peer_id, att):
+async def upload_files(task, path, peer_id, att):
     vk_session = vk_api.VkApi(token=TOKEN)
     upload = vk_api.VkUpload(vk_session)
     tasks = []
@@ -762,15 +762,39 @@ def get_task_number(event):
     return json.loads(event['object']['message'].get('payload', '{}')).get('task', None)
 
 
+def download_attachments(event, path, filenames):
+    for attachment in event['object']['message']['attachments']:
+        if attachment['type'] == 'video':
+            event['object']['message']['text'] += '\n' + attachment['video']['player']
+        else:
+            if attachment['type'] == 'photo':
+                filename = 'photo' + str(attachment['photo']['id']) + '.jpg'
+                for size in attachment['photo']['sizes']:
+                    if size['type'] in 'yz':
+                        url = size['url']
+            elif attachment['type'] == 'audio_message':
+                url = attachment['audio_message']['link_mp3']
+                filename = 'audio_message' + str(attachment['audio_message']['id']) + '.mp3'
+            elif attachment['type'] == 'doc':
+                url = attachment['doc']['url']
+                filename = attachment['doc']['title']
+            else:
+                continue
+
+            with open(path_to(path, filename), mode='wb') as file:
+                file.write(requests.get(url).content)
+            filenames.append(filename)
+
+
 @app.route('/vk_bot', methods=['GET', 'POST'])
 def vk_bot():
+    vk_session = vk_api.VkApi(token=TOKEN)
+    vk = vk_session.get_api()
     event = request.json
     if event['type'] == 'confirmation':
         return 'a08cd328'
     elif event['type'] == 'message_new':
         if event['object']['message'].get('payload', '') == "{\"send\":\"1\"}":
-            vk_session = vk_api.VkApi(token=TOKEN)
-            vk = vk_session.get_api()
             vk.messages.send(
                 message=f'работа отправлена',
                 user_id=event['object']['message']['from_id'],
@@ -779,19 +803,17 @@ def vk_bot():
                 keyboard='{"buttons":[]}')
             return 'OK'
         task_number = get_task_number(event)
+        student = get_student_by_vk_id(str(event['object']['message']['from_id']))
+        test = get_test_by_student(student)
         if task_number is not None:
             task_number = int(task_number)
-            student, test = get_student_test_by_vk_id(str(event['object']['message']['from_id']))
-            path = os.path.join(app.config['UPLOAD_FOLDER'], str(test.teacher_id), str(test.test_id))
-            with open(os.path.join(path, f'{test.test_id}.json'), mode='rt') as json_file:
-                task = json.load(json_file)['tasks'][task_number - 1]
-            with open(os.path.join(app.config['UPLOAD_FOLDER'], str(student.id), f'{test.test_id}.txt'),
-                      mode='wt') as txtfile:
+            path = path_to(str(test.teacher_id), str(test.test_id))
+            with open(os.path.join(path, f'{test.test_id}.json'), mode='rt') as jsonfile:
+                task = json.load(jsonfile)['tasks'][task_number - 1]
+            with open(path_to(str(student.id), f'{test.test_id}.txt'), mode='wt') as txtfile:
                 txtfile.write(str(task_number))
-            vk_session = vk_api.VkApi(token=TOKEN)
-            vk = vk_session.get_api()
             att = []
-            asyncio.run(f(task['extra_files'], path, event['object']['message']['peer_id'], att))
+            asyncio.run(upload_files(task['extra_files'], path, event['object']['message']['peer_id'], att))
             vk.messages.send(
                 message=create_message_files(task, task_number),
                 user_id=event['object']['message']['from_id'],
@@ -800,53 +822,33 @@ def vk_bot():
                 random_id=random.randint(0, 2 ** 64))
             return 'OK'
         else:
-            student, test = get_student_test_by_vk_id(str(event['object']['message']['from_id']))
             filenames = []
-            for attachment in event['object']['message']['attachments']:
-                if attachment['type'] == 'video':
-                    event['object']['message']['text'] += '\n' + attachment['video']['player']
-                else:
-                    if attachment['type'] == 'photo':
-                        filename = 'photo' + str(attachment['photo']['id']) + '.jpg'
-                        for size in attachment['photo']['sizes']:
-                            if size['type'] in 'yz':
-                                url = size['url']
-                    elif attachment['type'] == 'audio_message':
-                        url = attachment['audio_message']['link_mp3']
-                        filename = 'audio_message' + str(attachment['audio_message']['id']) + '.mp3'
-                    elif attachment['type'] == 'doc':
-                        url = attachment['doc']['url']
-                        filename = attachment['doc']['title']
-                    else:
-                        continue
-
-                    with open(os.path.join(app.config['UPLOAD_FOLDER'], str(student.id), filename), mode='wb') as file:
-                        file.write(requests.get(url).content)
-                    filenames.append(filename)
-            if not os.path.exists(os.path.join(app.config['UPLOAD_FOLDER'], str(student.id), f'{test.test_id}.txt')):
-                with open(os.path.join(app.config['UPLOAD_FOLDER'], str(student.id), f'{test.test_id}.txt'),
-                          mode='rt') as txtfile:
+            download_attachments(event, str(student.id), filenames)
+            if not os.path.exists(path_to(str(student.id), f'{test.test_id}.txt')): # ???
+                with open(path_to(str(student.id), f'{test.test_id}.txt'), mode='rt') as txtfile:
                     txtfile.write('-1')
-
-            with open(os.path.join(app.config['UPLOAD_FOLDER'], str(student.id), f'{test.test_id}.txt'),
-                      mode='rt') as txtfile:
+            with open(path_to(str(student.id), f'{test.test_id}.txt'), mode='rt') as txtfile:
                 task_number = int(txtfile.read().strip('\n'))
-            with open(os.path.join(app.config['UPLOAD_FOLDER'], str(student.id), f'{test.test_id}.json'), mode='rt') as jsonfile:
+            if task_number == -1:
+                vk.messages.send(
+                    message=f'задание не выбрано',
+                    user_id=event['object']['message']['from_id'],
+                    peer_id=event['object']['message']['peer_id'],
+                    random_id=random.randint(0, 2 ** 64))
+                return 'OK'
+            with open(path_to(str(student.id), f'{test.test_id}.json'), mode='rt') as jsonfile:
                 data = json.load(jsonfile)
             data['answers'][int(task_number) - 1] = {
                 "answer": event['object']['message']["text"],
                 "extra_files": filenames
             }
-            with open(os.path.join(app.config['UPLOAD_FOLDER'], str(student.id), f'{test.test_id}.json'), mode='wt') as jsonfile:
+            with open(path_to(str(student.id), f'{test.test_id}.json'), mode='wt') as jsonfile:
                 json.dump(data, jsonfile)
-            vk_session = vk_api.VkApi(token=TOKEN)
-            vk = vk_session.get_api()
             vk.messages.send(
                 message=f'ответ на задание {task_number} добавлен\nможете переходить к другому вопросу',
                 user_id=event['object']['message']['from_id'],
                 peer_id=event['object']['message']['peer_id'],
                 random_id=random.randint(0, 2 ** 64))
-
     return 'OK'
 
 
