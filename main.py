@@ -462,9 +462,12 @@ def delete_test(test_id):
                                        Tests.teacher_id == current_user.id).first()
     if test is None:
         abort(404)
+    if test_id in tests_begun:
+        tests_begun.remove(test_id)
+    for tests_and_groups in db_sess.query(TestsAndGroups).filter(TestsAndGroups.test_id == test_id).all():
+        db_sess.delete(tests_and_groups)
     db_sess.delete(test)
     db_sess.commit()
-
     path = path_to(str(current_user.id))
     shutil.rmtree(os.path.join(path, str(test_id)))
     return redirect('/manage_tests')
@@ -476,7 +479,8 @@ def manage_groups_for_test(test_id):
     # Надо снова добавить проверку на дурака
     db_sess = db_session.create_session()
     groups_ids = [x.group_id for x in db_sess.query(TestsAndGroups).filter(TestsAndGroups.test_id == test_id).all()]
-    groups = [(group, group.group_id in groups_ids) for group in db_sess.query(Groups).all()]
+    groups = [(group, group.group_id in groups_ids) for group in
+              db_sess.query(Groups).filter(Groups.teacher_id == current_user.id).all()]
 
     test = db_sess.query(Tests).filter(Tests.test_id == test_id).first()
     result = db_sess.query(Tests).filter(Tests.teacher_id == current_user.id).all()
@@ -544,10 +548,13 @@ def manage_students_answers(test_id):
     students_ids = [x.student_id for x in
                     db_sess.query(GroupParticipants).filter(GroupParticipants.group_id.in_(groups_ids)).all()]
     students = db_sess.query(Users).filter(Users.id.in_(students_ids)).all()
+    result = db_sess.query(Tests).filter(Tests.teacher_id == current_user.id).all()
     return render_template('tests_students_for_teacher.html',
                            students=students,
                            current_test=test,
-                           current_student=None)
+                           tests=result,
+                           current_student=None,
+                           mode=3)
 
 
 @app.route('/manage_tests/<int:test_id>/3/<int:student_id>')
@@ -715,7 +722,9 @@ def get_student_by_vk_id(link) -> Users:
 
 
 def get_test_by_student(student: Users) -> Tests:
-    with open(path_to(str(student.id), 'current_test.txt')) as file:
+    if not os.path.exists(path_to(str(student.id), 'current_test.txt')):
+        return None
+    with open(path_to(str(student.id), 'current_test.txt'), mode='rt') as file:
         test_id = int(file.read().strip('\n'))
     db_sess = db_session.create_session()
     return db_sess.query(Tests).filter(Tests.test_id == test_id).first()
@@ -789,7 +798,11 @@ def vk_bot():
     if event['type'] == 'confirmation':
         return 'a08cd328'
     elif event['type'] == 'message_new':
+        task_number = get_task_number(event)
+        student = get_student_by_vk_id(str(event['object']['message']['from_id']))
         if event['object']['message'].get('payload', '') == "{\"send\":\"1\"}":
+            with open(path_to(str(student.id), 'current_test.txt'), mode='rt') as file:
+                file.write('-1')
             vk.messages.send(
                 message=f'работа отправлена',
                 user_id=event['object']['message']['from_id'],
@@ -797,8 +810,6 @@ def vk_bot():
                 random_id=random.randint(0, 2 ** 64),
                 keyboard='{"buttons":[]}')
             return 'OK'
-        task_number = get_task_number(event)
-        student = get_student_by_vk_id(str(event['object']['message']['from_id']))
         test = get_test_by_student(student)
         if test is None:
             vk.messages.send(
