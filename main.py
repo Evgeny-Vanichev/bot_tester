@@ -780,7 +780,7 @@ def download_attachments(event, path, filenames):
                 filename = attachment['doc']['title']
             else:
                 continue
-            logging.debug(f'file {filename} saved')
+            logging.info(f'file {filename} saved')
             with open(path_to(path, filename), mode='wb') as file:
                 file.write(requests.get(url).content)
             filenames.append(filename)
