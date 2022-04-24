@@ -708,7 +708,6 @@ def check_db():
 
 
 def get_student_test_by_vk_id(link):
-    logging.debug('user id: ', link)
     # просит сменить задание
     db_sess = db_session.create_session()
     # ученик по профилю вк
@@ -718,7 +717,7 @@ def get_student_test_by_vk_id(link):
     group_participants = db_sess.query(GroupParticipants).filter(
         GroupParticipants.student_id == student.id).first()
     test_and_group = db_sess.query(TestsAndGroups).filter(
-        TestsAndGroups.group_id == group_participants.group_id).first()
+        TestsAndGroups.group_id == group_participants.group_id).all()
     test = db_sess.query(Tests).filter(Tests.test_id == test_and_group.test_id).first()
     return student, test
 
@@ -759,6 +758,10 @@ async def f(task, path, peer_id, att):
     await asyncio.gather(*tasks)
 
 
+def get_task_number(event):
+    return json.loads(event['object']['message'].get('payload', '{}')).get('task', None)
+
+
 @app.route('/vk_bot', methods=['GET', 'POST'])
 def vk_bot():
     event = request.json
@@ -775,12 +778,11 @@ def vk_bot():
                 random_id=random.randint(0, 2 ** 64),
                 keyboard='{"buttons":[]}')
             return 'OK'
-        task_number = json.loads(event['object']['message'].get('payload', '{}')).get('task', None)
+        task_number = get_task_number(event)
         if task_number is not None:
             task_number = int(task_number)
             student, test = get_student_test_by_vk_id(str(event['object']['message']['from_id']))
             path = os.path.join(app.config['UPLOAD_FOLDER'], str(test.teacher_id), str(test.test_id))
-
             with open(os.path.join(path, f'{test.test_id}.json'), mode='rt') as json_file:
                 task = json.load(json_file)['tasks'][task_number - 1]
             with open(os.path.join(app.config['UPLOAD_FOLDER'], str(student.id), f'{test.test_id}.txt'),
