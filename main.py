@@ -799,6 +799,13 @@ def vk_bot():
         return 'a08cd328'
 
     student = get_student_by_vk_id(str(event['object']['message']['from_id']))
+    if student is None:
+        vk.messages.send(
+            message=f'упс! кажется вы не зарегистрированы!\nПосетите сайт http://baikapp.herokuapp.com',
+            user_id=event['object']['message']['from_id'],
+            peer_id=event['object']['message']['peer_id'],
+            random_id=random.randint(0, 2 ** 64))
+        return 'OK'
     test = get_test_by_student(student)
     if test is None:
         vk.messages.send(
