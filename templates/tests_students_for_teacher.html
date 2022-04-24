@@ -43,6 +43,7 @@
     {% if answer == None %}
     <h2>Ученик не дал ответа на этот вопрос</h2>
     {% else %}
+    <h1>{{ answer['answer'] }}</h1>
     {% for filename in answer['extra_files'] %}
     {% if filename.split('.')[-1].lower() in ['bmp', 'jpeg', 'jpg', 'png'] %}
     <img src="/static/user_data/{{ current_student.id }}/{{ current_test.test_id }}/{{ filename }}">
