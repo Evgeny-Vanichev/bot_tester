@@ -801,7 +801,7 @@ def vk_bot():
         task_number = get_task_number(event)
         student = get_student_by_vk_id(str(event['object']['message']['from_id']))
         if event['object']['message'].get('payload', '') == "{\"send\":\"1\"}":
-            with open(path_to(str(student.id), 'current_test.txt'), mode='rt') as file:
+            with open(path_to(str(student.id), 'current_test.txt'), mode='wt') as file:
                 file.write('-1')
             vk.messages.send(
                 message=f'работа отправлена',
