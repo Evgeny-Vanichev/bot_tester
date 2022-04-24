@@ -46,7 +46,7 @@
     <h1>{{ answer['answer'] }}</h1>
     {% for filename in answer['extra_files'] %}
     {% if filename.split('.')[-1].lower() in ['bmp', 'jpeg', 'jpg', 'png'] %}
-    <img src="/static/user_data/{{ current_student.id }}/{{ current_test.test_id }}/{{ filename }}">
+    <img src="/static/user_data/{{ current_student.id }}/{{ filename }}">
     {% endif %}
     <p>
         <a href="/static/user_data/{{ current_student.id }}/{{ current_test.test_id }}/{{ filename }}" download>

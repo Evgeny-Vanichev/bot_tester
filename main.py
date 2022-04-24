@@ -780,7 +780,7 @@ def download_attachments(event, path, filenames):
                 filename = attachment['doc']['title']
             else:
                 continue
-
+            logging.debug(f'file {filename} saved')
             with open(path_to(path, filename), mode='wb') as file:
                 file.write(requests.get(url).content)
             filenames.append(filename)
@@ -805,6 +805,12 @@ def vk_bot():
         task_number = get_task_number(event)
         student = get_student_by_vk_id(str(event['object']['message']['from_id']))
         test = get_test_by_student(student)
+        if test is None:
+            vk.messages.send(
+                message=f'у вас нет активной работы',
+                user_id=event['object']['message']['from_id'],
+                peer_id=event['object']['message']['peer_id'],
+                random_id=random.randint(0, 2 ** 64))
         if task_number is not None:
             task_number = int(task_number)
             path = path_to(str(test.teacher_id), str(test.test_id))
