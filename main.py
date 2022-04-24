@@ -821,18 +821,21 @@ def vk_bot():
                     with open(os.path.join(app.config['UPLOAD_FOLDER'], str(student.id), filename), mode='wb') as file:
                         file.write(requests.get(url).content)
                     filenames.append(filename)
+            if not os.path.exists(os.path.join(app.config['UPLOAD_FOLDER'], str(student.id), f'{test.test_id}.txt')):
+                with open(os.path.join(app.config['UPLOAD_FOLDER'], str(student.id), f'{test.test_id}.txt'),
+                          mode='rt') as txtfile:
+                    txtfile.write('-1')
+
             with open(os.path.join(app.config['UPLOAD_FOLDER'], str(student.id), f'{test.test_id}.txt'),
                       mode='rt') as txtfile:
                 task_number = int(txtfile.read().strip('\n'))
-            with open(os.path.join(app.config['UPLOAD_FOLDER'], str(student.id), f'{test.test_id}.json'),
-                      mode='rt') as jsonfile:
+            with open(os.path.join(app.config['UPLOAD_FOLDER'], str(student.id), f'{test.test_id}.json'), mode='rt') as jsonfile:
                 data = json.load(jsonfile)
             data['answers'][int(task_number) - 1] = {
                 "answer": event['object']['message']["text"],
                 "extra_files": filenames
             }
-            with open(os.path.join(app.config['UPLOAD_FOLDER'], str(student.id), f'{test.test_id}.json'),
-                      mode='wt') as jsonfile:
+            with open(os.path.join(app.config['UPLOAD_FOLDER'], str(student.id), f'{test.test_id}.json'), mode='wt') as jsonfile:
                 json.dump(data, jsonfile)
             vk_session = vk_api.VkApi(token=TOKEN)
             vk = vk_session.get_api()
