@@ -797,9 +797,18 @@ def vk_bot():
     event = request.json
     if event['type'] == 'confirmation':
         return 'a08cd328'
-    elif event['type'] == 'message_new':
+
+    student = get_student_by_vk_id(str(event['object']['message']['from_id']))
+    test = get_test_by_student(student)
+    if test is None:
+        vk.messages.send(
+            message=f'у вас нет активной работы',
+            user_id=event['object']['message']['from_id'],
+            peer_id=event['object']['message']['peer_id'],
+            random_id=random.randint(0, 2 ** 64))
+        return 'OK'
+    if event['type'] == 'message_new':
         task_number = get_task_number(event)
-        student = get_student_by_vk_id(str(event['object']['message']['from_id']))
         if event['object']['message'].get('payload', '') == "{\"send\":\"1\"}":
             with open(path_to(str(student.id), 'current_test.txt'), mode='wt') as file:
                 file.write('-1')
@@ -810,13 +819,6 @@ def vk_bot():
                 random_id=random.randint(0, 2 ** 64),
                 keyboard='{"buttons":[]}')
             return 'OK'
-        test = get_test_by_student(student)
-        if test is None:
-            vk.messages.send(
-                message=f'у вас нет активной работы',
-                user_id=event['object']['message']['from_id'],
-                peer_id=event['object']['message']['peer_id'],
-                random_id=random.randint(0, 2 ** 64))
         if task_number is not None:
             task_number = int(task_number)
             path = path_to(str(test.teacher_id), str(test.test_id))
