@@ -857,6 +857,6 @@ if __name__ == '__main__':
         os.mkdir(os.path.join(app.config['UPLOAD_FOLDER']))
     except Exception:
         pass
-    os.remove(os.path.join(app.config['UPLOAD_FOLDER'], 'users_database.db'))
+    os.remove(os.path.join(os.getcwd(), 'users_database.db'))
     db_session.global_init("users_database.db")
     app.run(host='0.0.0.0', port=port)
